@@ -1,0 +1,61 @@
+{
+  "study": {
+    "attributes": [
+      {
+        "id": "brand",
+        "label": "Brand",
+        "in_byo": true,
+        "price_type": "none",
+        "levels": [
+          { "id": "brand_a", "label": "Brand A" },
+          { "id": "brand_b", "label": "Brand B" },
+          { "id": "brand_c", "label": "Brand C" }
+        ]
+      },
+      {
+        "id": "price",
+        "label": "Price",
+        "in_byo": true,
+        "price_type": "summed",
+        "levels": [
+          { "id": "price_low", "label": "$100", "price_increment": 100 },
+          { "id": "price_mid", "label": "$200", "price_increment": 200 },
+          { "id": "price_high", "label": "$300", "price_increment": 300 }
+        ]
+      },
+      {
+        "id": "color",
+        "label": "Color",
+        "in_byo": true,
+        "price_type": "none",
+        "levels": [
+          { "id": "color_red", "label": "Red" },
+          { "id": "color_blue", "label": "Blue" },
+          { "id": "color_green", "label": "Green" }
+        ]
+      }
+    ],
+    "design": {
+      "T": 6,
+      "Amin": 1,
+      "Amax": 2,
+      "screens_per_concept_batch": 3,
+      "total_screening_screens": 2,
+      "price_variation_pct": 0.3,
+      "price_rounding": 1
+    },
+    "phases": {
+      "byo": true,
+      "screening": true,
+      "must_have": true,
+      "unacceptable": true,
+      "tournament": true,
+      "calibration": false
+    },
+    "estimation": {
+      "method": "mnl",
+      "price_function": "piecewise",
+      "piecewise_breakpoints": [100, 200, 300]
+    }
+  }
+}

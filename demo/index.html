@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACBC Engine Demo — BYO → Screening → Tournament</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-hover: #242836;
+      --border: #2d3148;
+      --text: #e4e6f0;
+      --text-muted: #8b8fa3;
+      --accent: #6c5ce7;
+      --accent-hover: #7f71ed;
+      --success: #00b894;
+      --warning: #fdcb6e;
+      --danger: #e17055;
+      --radius: 8px;
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 16px;
+      --spacing-lg: 24px;
+      --spacing-xl: 32px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: var(--spacing-lg);
+    }
+
+    header {
+      text-align: center;
+      padding: var(--spacing-xl) 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header .subtitle {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-top: var(--spacing-xs);
+    }
+
+    .phase-badge {
+      display: inline-block;
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--accent);
+      color: white;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .phase-badge.screening { background: var(--warning); color: #1a1d27; }
+    .phase-badge.tournament { background: var(--success); color: #1a1d27; }
+    .phase-badge.done { background: var(--text-muted); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--spacing-lg);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .card h2 {
+      font-size: 1.125rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .card h3 {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .attribute-group {
+      margin-bottom: var(--spacing-md);
+    }
+
+    .attribute-group label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: var(--spacing-xs);
+      font-size: 0.875rem;
+    }
+
+    select, button {
+      font-family: inherit;
+      font-size: 0.875rem;
+    }
+
+    select {
+      width: 100%;
+      padding: var(--spacing-sm) var(--spacing-md);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    button {
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-secondary {
+      background: var(--surface-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--border); }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .concept-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .concept-card .concept-id {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .concept-card .level-row {
+      display: flex;
+      justify-content: space-between;
+      padding: var(--spacing-xs) 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .concept-card .level-row:last-child { border-bottom: none; }
+    .concept-card .level-row .attr-label { color: var(--text-muted); }
+    .concept-card .level-row .level-value { font-weight: 500; }
+    .concept-card .level-row.grayed { opacity: 0.4; }
+
+    .screening-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-sm);
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: var(--spacing-md);
+      overflow: hidden;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s;
+    }
+
+    #console-log {
+      background: #0a0c10;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--spacing-md);
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.75rem;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: var(--spacing-lg);
+    }
+
+    #console-log .log-entry {
+      padding: var(--spacing-xs) 0;
+      border-bottom: 1px solid #1a1d27;
+    }
+
+    #console-log .log-entry:last-child { border-bottom: none; }
+    #console-log .log-time { color: var(--text-muted); }
+    #console-log .log-phase { color: var(--accent); font-weight: 600; }
+    #console-log .log-event { color: var(--success); }
+    #console-log .log-detail { color: var(--text-muted); }
+
+    .hidden { display: none !important; }
+
+    .actions-row {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-md);
+    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .results-table th, .results-table td {
+      text-align: left;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .results-table th {
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ACBC Engine Demo</h1>
+      <p class="subtitle">Adaptive Choice-Based Conjoint — Full Survey Flow</p>
+    </header>
+
+    <div id="app">
+      <!-- Phase indicator -->
+      <div id="phase-indicator" class="hidden">
+        <span id="phase-badge" class="phase-badge">BYO</span>
+        <div class="progress-bar"><div id="progress-fill" class="fill" style="width: 0%"></div></div>
+      </div>
+
+      <!-- BYO Phase -->
+      <div id="phase-byo" class="card hidden">
+        <h2>Build Your Ideal Product</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--spacing-md);">
+          Select your preferred level for each attribute below.
+        </p>
+        <div id="byo-attributes"></div>
+        <div class="actions-row">
+          <button id="btn-submit-byo" class="btn-primary">Submit Ideal Concept</button>
+        </div>
+      </div>
+
+      <!-- Screening Phase -->
+      <div id="phase-screening" class="card hidden">
+        <h2>Screening — Is this possible?</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--spacing-md);">
+          Review each concept and indicate whether it could be a viable option for you.
+        </p>
+        <div id="screening-concepts"></div>
+        <div class="actions-row">
+          <button id="btn-submit-screening" class="btn-primary">Submit Screening Responses</button>
+        </div>
+      </div>
+
+      <!-- Confirm Rule Phase -->
+      <div id="phase-confirm" class="card hidden">
+        <h2 id="confirm-title">Confirm Preference Rule</h2>
+        <p id="confirm-description" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--spacing-md);"></p>
+        <div class="actions-row">
+          <button id="btn-confirm-rule" class="btn-success">Yes, Confirm</button>
+          <button id="btn-reject-rule" class="btn-secondary">No, Continue Screening</button>
+        </div>
+      </div>
+
+      <!-- Tournament Phase -->
+      <div id="phase-tournament" class="card hidden">
+        <h2 id="tournament-title">Choice Tournament</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--spacing-md);">
+          Select your preferred concept from each set. Grayed attributes are identical across options.
+        </p>
+        <div id="tournament-tasks"></div>
+        <div class="actions-row">
+          <button id="btn-submit-tournament" class="btn-primary">Submit Choices</button>
+        </div>
+      </div>
+
+      <!-- Done Phase -->
+      <div id="phase-done" class="card hidden">
+        <h2>Survey Complete</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--spacing-md);">
+          All phases completed. Final state summary below.
+        </p>
+        <div id="results-summary"></div>
+        <div class="actions-row">
+          <button id="btn-reset" class="btn-secondary">Reset Demo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console log -->
+    <div id="console-log">
+      <div style="color: var(--text-muted); margin-bottom: var(--spacing-sm); font-weight: 600;">Engine Event Log</div>
+    </div>
+  </div>
+
+  <script type="module">
+    // ============================================================
+    // ACBC Engine — Inlined from src/core/*.ts for demo purposes
+    // ============================================================
+
+    // --- PRNG (from src/core/prng.ts) ---
+    class SeededRNG {
+      constructor(seed) {
+        let h = 1779033703 ^ seed.length;
+        for (let i = 0; i < seed.length; i++) {
+          h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        this.a = h >>> 0;
+        this.b = (h ^ (h >>> 17)) >>> 0;
+        this.c = (h ^ (h << 17)) >>> 0;
+        this.d = (h ^ (h >>> 15)) >>> 0;
+      }
+      next() {
+        this.a >>>= 0; this.b >>>= 0; this.c >>>= 0; this.d >>>= 0;
+        let t = (this.a + this.b) | 0;
+        this.a = this.b ^ (this.b >>> 9);
+        this.b = this.c + (this.c << 3) | 0;
+        this.c = (this.c << 21 | this.c >>> 11);
+        this.d = (this.d + 1) | 0;
+        t = (t + this.d) | 0;
+        this.c = (this.c + t) | 0;
+        return (t >>> 0) / 4294967296;
+      }
+      randInt(min, max) { return Math.floor(this.next() * (max - min + 1)) + min; }
+      shuffle(array) {
+        const result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+          const j = Math.floor(this.next() * (i + 1));
+          [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+      }
+    }
+
+    // --- Sample Config (from test/fixtures/sample-study.json) ---
+    const SAMPLE_CONFIG = {
+      "study": {
+        "attributes": [
+          { "id": "brand", "label": "Brand", "in_byo": true, "price_type": "none",
+            "levels": [
+              { "id": "brand_a", "label": "Brand A" },
+              { "id": "brand_b", "label": "Brand B" },
+              { "id": "brand_c", "label": "Brand C" }
+            ]
+          },
+          { "id": "price", "label": "Price", "in_byo": true, "price_type": "summed",
+            "levels": [
+              { "id": "price_low", "label": "$100", "price_increment": 100 },
+              { "id": "price_mid", "label": "$200", "price_increment": 200 },
+              { "id": "price_high", "label": "$300", "price_increment": 300 }
+            ]
+          },
+          { "id": "color", "label": "Color", "in_byo": true, "price_type": "none",
+            "levels": [
+              { "id": "color_red", "label": "Red" },
+              { "id": "color_blue", "label": "Blue" },
+              { "id": "color_green", "label": "Green" }
+            ]
+          }
+        ],
+        "design": {
+          "T": 6, "Amin": 1, "Amax": 2,
+          "screens_per_concept_batch": 3,
+          "total_screening_screens": 2,
+          "price_variation_pct": 0.3,
+          "price_rounding": 1
+        },
+        "phases": {
+          "byo": true, "screening": true, "must_have": true,
+          "unacceptable": true, "tournament": true, "calibration": false
+        },
+        "estimation": {
+          "method": "mnl", "price_function": "piecewise",
+          "piecewise_breakpoints": [100, 200, 300]
+        }
+      }
+    };
+
+    // --- Reducer helpers (from src/core/reducer.ts) ---
+    function buildByoConcept(answers) {
+      return { id: "byo-concept", levels: { ...answers }, source: "BYO" };
+    }
+
+    function generateNearNeighborPool(c0, rules, config, seed) {
+      const rng = new SeededRNG(seed);
+      const { T, Amin, Amax } = config.study.design;
+      const concepts = [];
+      const counts = {};
+      for (const attr of config.study.attributes) {
+        counts[attr.id] = {};
+        for (const level of attr.levels) counts[attr.id][level.id] = 0;
+      }
+      let attempts = 0;
+      const maxAttempts = T * 10;
+      while (concepts.length < T && attempts < maxAttempts) {
+        attempts++;
+        const ai = rng.randInt(Amin, Amax);
+        const byoAttrs = config.study.attributes.filter(a => a.in_byo);
+        const shuffled = rng.shuffle(byoAttrs);
+        const attrsToVary = shuffled.slice(0, Math.min(ai, shuffled.length));
+        const candidate = {
+          id: `concept-${concepts.length + 1}`,
+          levels: { ...c0.levels },
+          source: "SCREENING",
+        };
+        for (const attr of attrsToVary) {
+          const allowed = attr.levels.filter(l =>
+            !rules.some(r => r.kind === "unacceptable" && r.attributeId === attr.id && r.levelId === l.id)
+          );
+          if (allowed.length === 0) continue;
+          const weighted = allowed.map(l => ({ level: l, weight: 1 / (counts[attr.id][l.id] + 1) }));
+          const total = weighted.reduce((s, w) => s + w.weight, 0);
+          let r = rng.next() * total;
+          let selected = weighted[0].level;
+          for (const w of weighted) { r -= w.weight; if (r <= 0) { selected = w.level; break; } }
+          candidate.levels[attr.id] = selected.id;
+        }
+        const isDup = concepts.some(c => Object.keys(c.levels).every(k => c.levels[k] === candidate.levels[k]));
+        if (isDup) continue;
+        const violates = rules.some(rule => {
+          if (rule.kind === "mustHave") return candidate.levels[rule.attributeId] !== rule.levelId;
+          if (rule.kind === "unacceptable") return candidate.levels[rule.attributeId] === rule.levelId;
+          return false;
+        });
+        if (violates) continue;
+        for (const attr of config.study.attributes) {
+          const lid = candidate.levels[attr.id];
+          if (lid && counts[attr.id][lid] !== undefined) counts[attr.id][lid]++;
+        }
+        concepts.push(candidate);
+      }
+      return concepts;
+    }
+
+    function detectCandidateRule(screened, pool, confirmed) {
+      if (screened.length < 3) return null;
+      const map = new Map(pool.map(c => [c.id, c]));
+      const ev = {};
+      for (const resp of screened) {
+        const concept = map.get(resp.conceptId);
+        if (!concept) continue;
+        for (const [attrId, levelId] of Object.entries(concept.levels)) {
+          if (!ev[attrId]) ev[attrId] = {};
+          if (!ev[attrId][levelId]) ev[attrId][levelId] = { exposure: 0, accepts: 0, rejects: 0 };
+          ev[attrId][levelId].exposure++;
+          if (resp.possible) ev[attrId][levelId].accepts++; else ev[attrId][levelId].rejects++;
+        }
+      }
+      for (const [attrId, levels] of Object.entries(ev)) {
+        for (const [levelId, e] of Object.entries(levels)) {
+          if (confirmed.some(r => r.attributeId === attrId && r.levelId === levelId)) continue;
+          if (e.exposure >= 3 && e.rejects === e.exposure) {
+            return { kind: "unacceptable", attributeId: attrId, levelId, confirmedAtScreen: Math.floor(screened.length / 4) };
+          }
+        }
+      }
+      for (const [attrId, levels] of Object.entries(ev)) {
+        for (const [levelId, e] of Object.entries(levels)) {
+          if (confirmed.some(r => r.attributeId === attrId && r.levelId === levelId)) continue;
+          if (e.exposure >= 3 && e.accepts === e.exposure) {
+            const others = Object.entries(levels).filter(([lid]) => lid !== levelId);
+            if (!others.some(([, oe]) => oe.accepts > 0)) {
+              return { kind: "mustHave", attributeId: attrId, levelId, confirmedAtScreen: Math.floor(screened.length / 4) };
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function screeningComplete(screened, config) {
+      return screened.length >= config.study.design.total_screening_screens * config.study.design.screens_per_concept_batch;
+    }
+
+    function collectSurvivors(screened) {
+      return screened.filter(s => s.possible).map(s => s.conceptId);
+    }
+
+    function makeTriples(items) {
+      const triples = [];
+      for (let i = 0; i < items.length; i += 3) triples.push(items.slice(i, i + 3));
+      return triples;
+    }
+
+    function sharedAttributes(concepts) {
+      if (concepts.length === 0) return [];
+      const keys = Object.keys(concepts[0].levels);
+      return keys.filter(k => concepts.every(c => c.levels[k] === concepts[0].levels[k]));
+    }
+
+    function buildTournament(survivorIds, pool, seed) {
+      const rng = new SeededRNG(seed + "-tournament");
+      const concepts = survivorIds.map(id => pool.find(c => c.id === id)).filter(c => c !== null);
+      const shuffled = rng.shuffle(concepts);
+      const rounds = [];
+      let current = makeTriples(shuffled);
+      let round = 1;
+      while (current.length > 0) {
+        rounds.push({
+          round,
+          tasks: current.map(triple => ({
+            concepts: triple,
+            grayedAttributes: sharedAttributes(triple),
+            winnerConceptId: null,
+          })),
+        });
+        if (current.length <= 1) break;
+        const placeholders = current.map((_, i) => ({ id: `winner-r${round}-${i}`, levels: {}, source: "TOURNAMENT" }));
+        current = makeTriples(placeholders);
+        round++;
+      }
+      return rounds;
+    }
+
+    function mapRuleToPhase(rule) {
+      return rule.kind === "mustHave" ? "CONFIRM_MUST_HAVE" : "CONFIRM_UNACCEPTABLE";
+    }
+
+    // --- Reducer (from src/core/reducer.ts) ---
+    function createInitialState(studyId, respondentId, seed) {
+      return {
+        respondentId, studyId, phase: "BYO", rngSeed: seed,
+        byoConcept: null, conceptPool: [], screened: [],
+        candidateRule: null, confirmedRules: [],
+        survivingConceptIds: [], tournamentRounds: [],
+        currentTournamentRound: 0, currentTournamentTask: 0,
+        calibration: null, eventVersion: 1,
+      };
+    }
+
+    function reduce(state, event, config) {
+      switch (state.phase) {
+        case "BYO":
+          if (event.type === "BYO_SUBMITTED" && config) {
+            const byo = buildByoConcept(event.answers);
+            const pool = generateNearNeighborPool(byo, state.confirmedRules, config, state.rngSeed);
+            return { ...state, byoConcept: byo, conceptPool: pool, phase: "SCREENING" };
+          }
+          return state;
+        case "SCREENING":
+          if (event.type === "SCREEN_SUBMITTED") {
+            const screened = [...state.screened, ...event.responses];
+            const candidate = detectCandidateRule(screened, state.conceptPool, state.confirmedRules);
+            if (candidate) return { ...state, screened, candidateRule: candidate, phase: mapRuleToPhase(candidate) };
+            if (config && screeningComplete(screened, config)) {
+              const survivors = collectSurvivors(screened);
+              const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
+              return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
+            }
+            return { ...state, screened };
+          }
+          return state;
+        case "CONFIRM_MUST_HAVE":
+        case "CONFIRM_UNACCEPTABLE":
+          if (event.type === "RULE_CONFIRMED") {
+            if (!state.candidateRule) return state;
+            return { ...state, confirmedRules: [...state.confirmedRules, state.candidateRule], candidateRule: null, phase: "REGENERATE" };
+          }
+          if (event.type === "RULE_REJECTED") return { ...state, candidateRule: null, phase: "SCREENING" };
+          return state;
+        case "REGENERATE":
+          if (config && state.byoConcept) {
+            const pool = generateNearNeighborPool(state.byoConcept, state.confirmedRules, config, state.rngSeed);
+            return { ...state, conceptPool: pool, phase: "SCREENING" };
+          }
+          return { ...state, phase: "SCREENING" };
+        case "TOURNAMENT":
+          if (event.type === "TOURNAMENT_TASK_SUBMITTED") {
+            const rounds = state.tournamentRounds.map((r, idx) => idx !== state.currentTournamentRound ? r : {
+              ...r, tasks: r.tasks.map((t, ti) => ti !== state.currentTournamentTask ? t : { ...t, winnerConceptId: event.chosenConceptId })
+            });
+            const nextTask = state.currentTournamentTask + 1;
+            const cur = rounds[state.currentTournamentRound];
+            if (nextTask >= cur.tasks.length) {
+              const nextRound = state.currentTournamentRound + 1;
+              if (nextRound >= rounds.length) {
+                return { ...state, tournamentRounds: rounds, currentTournamentRound: nextRound, phase: config?.study.phases.calibration ? "CALIBRATION" : "DONE" };
+              }
+              return { ...state, tournamentRounds: rounds, currentTournamentRound: nextRound, currentTournamentTask: 0 };
+            }
+            return { ...state, tournamentRounds: rounds, currentTournamentTask: nextTask };
+          }
+          return state;
+        case "CALIBRATION":
+          if (event.type === "CALIBRATION_SUBMITTED") return { ...state, calibration: event.answer, phase: "DONE" };
+          return state;
+        case "DONE":
+          return state;
+        default:
+          return state;
+      }
+    }
+
+    // ============================================================
+    // Demo App — UI + State Machine Orchestration
+    // ============================================================
+
+    const config = SAMPLE_CONFIG;
+    const seed = `demo-${Date.now()}`;
+    let state = createInitialState("demo-study", "demo-respondent-001", seed);
+    let screeningResponses = [];
+    let tournamentChoices = [];
+
+    // --- Console logger ---
+    function logEvent(phase, eventType, detail = "") {
+      const el = document.getElementById("console-log");
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+      entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-phase">${phase}</span> → <span class="log-event">${eventType}</span> <span class="log-detail">${detail}</span>`;
+      el.appendChild(entry);
+      el.scrollTop = el.scrollHeight;
+      console.log(`[ACBC Demo] ${phase} | ${eventType} | ${detail}`);
+    }
+
+    // --- Phase rendering ---
+    function showPhase(phase) {
+      document.querySelectorAll("[id^='phase-']").forEach(el => el.classList.add("hidden"));
+      const badge = document.getElementById("phase-badge");
+      const indicator = document.getElementById("phase-indicator");
+      indicator.classList.remove("hidden");
+
+      const phaseMap = {
+        "BYO": { el: "phase-byo", badgeClass: "", label: "BYO" },
+        "SCREENING": { el: "phase-screening", badgeClass: "screening", label: "Screening" },
+        "CONFIRM_MUST_HAVE": { el: "phase-confirm", badgeClass: "screening", label: "Confirm Must-Have" },
+        "CONFIRM_UNACCEPTABLE": { el: "phase-confirm", badgeClass: "screening", label: "Confirm Unacceptable" },
+        "REGENERATE": { el: "phase-screening", badgeClass: "screening", label: "Regenerating..." },
+        "TOURNAMENT": { el: "phase-tournament", badgeClass: "tournament", label: "Tournament" },
+        "CALIBRATION": { el: "phase-done", badgeClass: "done", label: "Calibration" },
+        "DONE": { el: "phase-done", badgeClass: "done", label: "Complete" },
+      };
+
+      const p = phaseMap[phase] || phaseMap["DONE"];
+      badge.className = `phase-badge ${p.badgeClass}`;
+      badge.textContent = p.label;
+      document.getElementById(p.el).classList.remove("hidden");
+
+      // Progress
+      const totalSteps = 4; // BYO, Screening, Tournament, Done
+      const stepMap = { "BYO": 1, "SCREENING": 2, "CONFIRM_MUST_HAVE": 2, "CONFIRM_UNACCEPTABLE": 2, "REGENERATE": 2, "TOURNAMENT": 3, "CALIBRATION": 4, "DONE": 4 };
+      const pct = ((stepMap[phase] || 4) / totalSteps) * 100;
+      document.getElementById("progress-fill").style.width = `${pct}%`;
+    }
+
+    function getLevelLabel(attrId, levelId) {
+      const attr = config.study.attributes.find(a => a.id === attrId);
+      if (!attr) return levelId;
+      const level = attr.levels.find(l => l.id === levelId);
+      return level ? level.label : levelId;
+    }
+
+    function renderConceptCard(concept, index, showActions = false, grayed = []) {
+      const attrRows = config.study.attributes.map(attr => {
+        const levelId = concept.levels[attr.id];
+        const isGrayed = grayed.includes(attr.id);
+        return `<div class="level-row ${isGrayed ? 'grayed' : ''}">
+          <span class="attr-label">${attr.label}</span>
+          <span class="level-value">${levelId ? getLevelLabel(attr.id, levelId) : "—"}</span>
+        </div>`;
+      }).join("");
+
+      if (showActions) {
+        return `<div class="concept-card" data-concept-id="${concept.id}">
+          <div class="concept-id">${concept.id} (${concept.source})</div>
+          ${attrRows}
+          <div class="screening-actions">
+            <button class="btn-success btn-possible" data-id="${concept.id}">Possible</button>
+            <button class="btn-danger btn-not-possible" data-id="${concept.id}">Not Possible</button>
+          </div>
+        </div>`;
+      }
+
+      return `<div class="concept-card" data-concept-id="${concept.id}">
+        <div class="concept-id">${concept.id} (${concept.source})</div>
+        ${attrRows}
+      </div>`;
+    }
+
+    // --- BYO Phase ---
+    function renderBYO() {
+      const container = document.getElementById("byo-attributes");
+      const byoAttrs = config.study.attributes.filter(a => a.in_byo);
+      container.innerHTML = byoAttrs.map(attr => `
+        <div class="attribute-group">
+          <label for="byo-${attr.id}">${attr.label}</label>
+          <select id="byo-${attr.id}">
+            ${attr.levels.map(l => `<option value="${l.id}">${l.label}</option>`).join("")}
+          </select>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("btn-submit-byo").addEventListener("click", () => {
+      const byoAttrs = config.study.attributes.filter(a => a.in_byo);
+      const answers = {};
+      byoAttrs.forEach(attr => {
+        answers[attr.id] = document.getElementById(`byo-${attr.id}`).value;
+      });
+
+      const oldPhase = state.phase;
+      state = reduce(state, { type: "BYO_SUBMITTED", answers }, config);
+      logEvent(oldPhase, "BYO_SUBMITTED", `answers: ${JSON.stringify(answers)}`);
+      logEvent(state.phase, "STATE_TRANSITION", `conceptPool: ${state.conceptPool.length} concepts generated`);
+
+      renderScreening();
+      showPhase(state.phase);
+    });
+
+    // --- Screening Phase ---
+    function renderScreening() {
+      const container = document.getElementById("screening-concepts");
+      const conceptsToShow = state.conceptPool.slice(
+        state.screened.length,
+        state.screened.length + config.study.design.screens_per_concept_batch
+      );
+
+      if (conceptsToShow.length === 0) {
+        container.innerHTML = "<p style='color: var(--text-muted);'>No more concepts to screen.</p>";
+        return;
+      }
+
+      screeningResponses = [];
+      container.innerHTML = conceptsToShow.map((c, i) => renderConceptCard(c, i, true)).join("");
+
+      // Wire up buttons
+      container.querySelectorAll(".btn-possible").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          screeningResponses.push({ conceptId: id, possible: true, screenIndex: state.screened.length });
+          btn.parentElement.innerHTML = `<span style="color: var(--success); font-weight: 500;">Marked: Possible</span>`;
+        });
+      });
+      container.querySelectorAll(".btn-not-possible").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.dataset.id;
+          screeningResponses.push({ conceptId: id, possible: false, screenIndex: state.screened.length });
+          btn.parentElement.innerHTML = `<span style="color: var(--danger); font-weight: 500;">Marked: Not Possible</span>`;
+        });
+      });
+    }
+
+    document.getElementById("btn-submit-screening").addEventListener("click", () => {
+      if (screeningResponses.length === 0) {
+        alert("Please respond to all concepts before submitting.");
+        return;
+      }
+
+      const oldPhase = state.phase;
+      state = reduce(state, { type: "SCREEN_SUBMITTED", responses: screeningResponses }, config);
+      logEvent(oldPhase, "SCREEN_SUBMITTED", `${screeningResponses.length} responses`);
+
+      if (state.candidateRule) {
+        logEvent(state.phase, "CANDIDATE_RULE_DETECTED", `${state.candidateRule.kind}: ${state.candidateRule.attributeId} = ${state.candidateRule.levelId}`);
+        renderConfirmRule();
+      } else if (state.phase === "TOURNAMENT") {
+        logEvent(state.phase, "SCREENING_COMPLETE", `${state.survivingConceptIds.length} survivors`);
+        renderTournament();
+      } else if (state.phase === "DONE") {
+        logEvent(state.phase, "SURVEY_COMPLETE", "No tournament phase configured");
+        renderDone();
+      } else {
+        logEvent(state.phase, "CONTINUE_SCREENING", `${state.screened.length}/${config.study.design.total_screening_screens * config.study.design.screens_per_concept_batch} screens completed`);
+        renderScreening();
+      }
+
+      showPhase(state.phase);
+    });
+
+    // --- Confirm Rule Phase ---
+    function renderConfirmRule() {
+      const rule = state.candidateRule;
+      if (!rule) return;
+
+      const title = document.getElementById("confirm-title");
+      const desc = document.getElementById("confirm-description");
+
+      const attrLabel = config.study.attributes.find(a => a.id === rule.attributeId)?.label || rule.attributeId;
+      const levelLabel = getLevelLabel(rule.attributeId, rule.levelId);
+
+      if (rule.kind === "mustHave") {
+        title.textContent = "Must-Have Rule Detected";
+        desc.textContent = `The pattern suggests you require "${attrLabel}" to be "${levelLabel}". Is this correct?`;
+      } else {
+        title.textContent = "Unacceptable Rule Detected";
+        desc.textContent = `The pattern suggests you find "${attrLabel}" = "${levelLabel}" unacceptable. Is this correct?`;
+      }
+    }
+
+    document.getElementById("btn-confirm-rule").addEventListener("click", () => {
+      const oldPhase = state.phase;
+      state = reduce(state, { type: "RULE_CONFIRMED" }, config);
+      logEvent(oldPhase, "RULE_CONFIRMED", `${state.confirmedRules[state.confirmedRules.length - 1].kind} rule added`);
+      logEvent(state.phase, "REGENERATE", "Regenerating concept pool with new rules");
+
+      // REGENERATE immediately transitions to SCREENING in the reducer
+      state = reduce(state, { type: "REGENERATE" }, config);
+      logEvent(state.phase, "STATE_TRANSITION", `New pool: ${state.conceptPool.length} concepts`);
+
+      renderScreening();
+      showPhase(state.phase);
+    });
+
+    document.getElementById("btn-reject-rule").addEventListener("click", () => {
+      const oldPhase = state.phase;
+      state = reduce(state, { type: "RULE_REJECTED" }, config);
+      logEvent(oldPhase, "RULE_REJECTED", "Returning to screening");
+
+      renderScreening();
+      showPhase(state.phase);
+    });
+
+    // --- Tournament Phase ---
+    function renderTournament() {
+      const container = document.getElementById("tournament-tasks");
+      const round = state.tournamentRounds[state.currentTournamentRound];
+      if (!round) {
+        container.innerHTML = "<p style='color: var(--text-muted);'>No tournament tasks.</p>";
+        return;
+      }
+
+      const task = round.tasks[state.currentTournamentTask];
+      if (!task) {
+        container.innerHTML = "<p style='color: var(--text-muted);'>No more tasks in this round.</p>";
+        return;
+      }
+
+      document.getElementById("tournament-title").textContent = `Tournament — Round ${round.round}, Task ${state.currentTournamentTask + 1}/${round.tasks.length}`;
+
+      tournamentChoices = [];
+      container.innerHTML = task.concepts.map((c, i) => {
+        const grayed = task.grayedAttributes || [];
+        return `<div class="concept-card" data-concept-id="${c.id}" style="cursor: pointer; border: 2px solid transparent;" onclick="this.style.borderColor='var(--accent)'; document.querySelectorAll('.concept-card').forEach(el => { if(el !== this) el.style.borderColor = 'var(--border)'; }); window._tournamentPick = '${c.id}';">
+          <div class="concept-id">${c.id} (${c.source})</div>
+          ${config.study.attributes.map(attr => {
+            const levelId = c.levels[attr.id];
+            const isGrayed = grayed.includes(attr.id);
+            return `<div class="level-row ${isGrayed ? 'grayed' : ''}">
+              <span class="attr-label">${attr.label}</span>
+              <span class="level-value">${levelId ? getLevelLabel(attr.id, levelId) : "—"}</span>
+            </div>`;
+          }).join("")}
+        </div>`;
+      }).join("");
+
+      window._tournamentPick = null;
+    }
+
+    document.getElementById("btn-submit-tournament").addEventListener("click", () => {
+      const chosen = window._tournamentPick;
+      if (!chosen) {
+        alert("Please select a concept.");
+        return;
+      }
+
+      const oldPhase = state.phase;
+      state = reduce(state, { type: "TOURNAMENT_TASK_SUBMITTED", matchupId: `r${state.currentTournamentRound}-t${state.currentTournamentTask}`, chosenConceptId: chosen }, config);
+      logEvent(oldPhase, "TOURNAMENT_TASK_SUBMITTED", `chosen: ${chosen}`);
+
+      if (state.phase === "DONE") {
+        logEvent(state.phase, "TOURNAMENT_COMPLETE", "All rounds finished");
+        renderDone();
+      } else {
+        logEvent(state.phase, "NEXT_TASK", `Round ${state.currentTournamentRound + 1}, Task ${state.currentTournamentTask + 1}`);
+        renderTournament();
+      }
+
+      showPhase(state.phase);
+    });
+
+    // --- Done Phase ---
+    function renderDone() {
+      const container = document.getElementById("results-summary");
+      const byoLevels = state.byoConcept ? Object.entries(state.byoConcept.levels).map(([k, v]) =>
+        `<tr><td>${config.study.attributes.find(a => a.id === k)?.label || k}</td><td>${getLevelLabel(k, v)}</td></tr>`
+      ).join("") : "<tr><td colspan='2'>No BYO concept</td></tr>";
+
+      const rulesHtml = state.confirmedRules.length > 0
+        ? state.confirmedRules.map(r => `<li>${r.kind}: ${r.attributeId} = ${r.levelId}</li>`).join("")
+        : "<li>None detected</li>";
+
+      const survivorsHtml = state.survivingConceptIds.length > 0
+        ? state.survivingConceptIds.map(id => `<li>${id}</li>`).join("")
+        : "<li>None</li>";
+
+      container.innerHTML = `
+        <h3>BYO Ideal Concept</h3>
+        <table class="results-table"><thead><tr><th>Attribute</th><th>Selected Level</th></tr></thead><tbody>${byoLevels}</tbody></table>
+
+        <h3 style="margin-top: var(--spacing-md);">Confirmed Cutoff Rules</h3>
+        <ul>${rulesHtml}</ul>
+
+        <h3 style="margin-top: var(--spacing-md);">Surviving Concepts</h3>
+        <ul>${survivorsHtml}</ul>
+
+        <h3 style="margin-top: var(--spacing-md);">Tournament Rounds</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">${state.tournamentRounds.length} round(s), ${state.tournamentRounds.reduce((s, r) => s + r.tasks.length, 0)} total tasks</p>
+
+        <h3 style="margin-top: var(--spacing-md);">Event Log</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">See console log below for full event trace.</p>
+      `;
+    }
+
+    // --- Reset ---
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      location.reload();
+    });
+
+    // --- Initialize ---
+    logEvent("INIT", "DEMO_START", `seed: ${seed}, study: demo-study`);
+    logEvent("INIT", "CONFIG_LOADED", `${config.study.attributes.length} attributes, T=${config.study.design.T}`);
+    renderBYO();
+    showPhase("BYO");
+  </script>
+</body>
+</html>
