@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computePrice, basePrice, applyPriceVariation } from "../../../src/design/price.js";
+import { computePrice, basePrice, applyPriceVariation, piecewisePriceVector } from "../../../src/design/price.js";
 import { Concept, StudyConfig } from "../../../src/core/types.js";
 import { SeededRNG } from "../../../src/core/prng.js";
 
@@ -250,5 +250,74 @@ describe("computePrice", () => {
     expect(result).toBeDefined();
     expect(result).toBeGreaterThanOrEqual(Math.round(160 * 0.7 / 5) * 5);
     expect(result).toBeLessThanOrEqual(Math.round(160 * 1.3 / 5) * 5);
+  });
+});
+
+describe("piecewisePriceVector", () => {
+  it("encodes price within middle segment of 3 breakpoints", () => {
+    // breakpoints [100, 200, 300] → 2 segments: [100,200], [200,300]
+    // price 150 → segment1: 150-100=50, segment2: 0
+    expect(piecewisePriceVector(150, [100, 200, 300])).toEqual([50, 0]);
+  });
+
+  it("encodes price within second segment of 3 breakpoints", () => {
+    // price 250 → segment1: 200-100=100 (saturated), segment2: 250-200=50
+    expect(piecewisePriceVector(250, [100, 200, 300])).toEqual([100, 50]);
+  });
+
+  it("saturates all segments when price is above all breakpoints", () => {
+    // price 500 → [100, 100]
+    expect(piecewisePriceVector(500, [100, 200, 300])).toEqual([100, 100]);
+  });
+
+  it("returns all zeros when price is below all breakpoints", () => {
+    expect(piecewisePriceVector(50, [100, 200, 300])).toEqual([0, 0]);
+  });
+
+  it("returns all zeros when price equals the first breakpoint", () => {
+    // price == lower bound of first segment → 0 for that segment
+    expect(piecewisePriceVector(100, [100, 200, 300])).toEqual([0, 0]);
+  });
+
+  it("saturates a segment when price equals its upper breakpoint", () => {
+    // price 200 → segment1: 200-100=100 (saturated), segment2: 0
+    expect(piecewisePriceVector(200, [100, 200, 300])).toEqual([100, 0]);
+  });
+
+  it("saturates all segments when price equals the last breakpoint", () => {
+    expect(piecewisePriceVector(300, [100, 200, 300])).toEqual([100, 100]);
+  });
+
+  it("encodes 5 breakpoints (4 segments) correctly", () => {
+    // breakpoints [10, 20, 30, 40, 50] → 4 segments of width 10
+    // price 35 → seg1: 10, seg2: 10, seg3: 5, seg4: 0
+    expect(piecewisePriceVector(35, [10, 20, 30, 40, 50])).toEqual([10, 10, 5, 0]);
+  });
+
+  it("saturates all 4 segments when price above 5 breakpoints", () => {
+    expect(piecewisePriceVector(100, [10, 20, 30, 40, 50])).toEqual([10, 10, 10, 10]);
+  });
+
+  it("returns empty array for empty breakpoints", () => {
+    expect(piecewisePriceVector(100, [])).toEqual([]);
+  });
+
+  it("returns empty array for single breakpoint", () => {
+    expect(piecewisePriceVector(100, [100])).toEqual([]);
+  });
+
+  it("throws on non-ascending breakpoints", () => {
+    expect(() => piecewisePriceVector(150, [200, 100, 300])).toThrow();
+  });
+
+  it("throws on duplicate breakpoints", () => {
+    expect(() => piecewisePriceVector(150, [100, 100, 300])).toThrow();
+  });
+
+  it("does not mutate the breakpoints array", () => {
+    const bp = [100, 200, 300];
+    const snapshot = [...bp];
+    piecewisePriceVector(150, bp);
+    expect(bp).toEqual(snapshot);
   });
 });
