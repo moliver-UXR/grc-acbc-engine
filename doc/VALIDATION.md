@@ -1,6 +1,6 @@
 # Validation
 
-The engine includes a robotic respondent harness and diagnostic functions to verify design quality, determinism, and resume safety. These are development tools, not optional extras: design generation correctness can only be verified by simulating the full respondent pipeline.
+The engine includes a robotic respondent harness and diagnostic functions to verify design quality, determinism, and resume safety. These are development tools, not optional extras. Design generation correctness can only be verified by simulating the full respondent pipeline.
 
 ## Robotic respondent harness
 
@@ -9,8 +9,8 @@ The engine includes a robotic respondent harness and diagnostic functions to ver
 ### Simulate one respondent
 
 ```typescript
-import { simulateRespondent } from "acbc-engine/test/harness.js";
-import config from "acbc-engine/test/fixtures/sample-study.json";
+import { simulateRespondent } from "./test/harness.js";
+import config from "./test/fixtures/sample-study.json";
 
 const run = simulateRespondent("demo", "r-1", config, {
   seed: "demo-seed",
@@ -27,7 +27,7 @@ console.log(run.eventLog);
 ### Simulate a cohort
 
 ```typescript
-import { simulateCohort } from "acbc-engine/test/harness.js";
+import { simulateCohort } from "./test/harness.js";
 
 const report = simulateCohort(config, 50, { seed: "cohort-seed" });
 console.log(report.summary);
@@ -42,7 +42,7 @@ The harness reports average screening responses, average tournament tasks, and a
 ### D-efficiency
 
 ```typescript
-import { computeDEfficiency } from "acbc-engine/test/diagnostics.js";
+import { computeDEfficiency } from "./test/diagnostics.js";
 
 const d = computeDEfficiency(matrix);
 ```
@@ -52,7 +52,7 @@ Computes `det(X'X)^(1/p)` after dropping `task_id` and `phase` columns. A value 
 ### Level balance
 
 ```typescript
-import { levelBalance } from "acbc-engine/test/diagnostics.js";
+import { levelBalance } from "./test/diagnostics.js";
 
 const balance = levelBalance(state.conceptPool, config);
 ```
@@ -62,7 +62,7 @@ Reports observed counts, expected counts, and deviations for every attribute lev
 ### Duplicate rate
 
 ```typescript
-import { duplicateRate } from "acbc-engine/test/diagnostics.js";
+import { duplicateRate } from "./test/diagnostics.js";
 
 const rate = duplicateRate(state.conceptPool);
 ```
@@ -72,7 +72,7 @@ Returns the fraction of exact duplicate concepts in the pool. Near-zero is ideal
 ### Resume safety
 
 ```typescript
-import { resumeSafetyCheck } from "acbc-engine/test/diagnostics.js";
+import { resumeSafetyCheck } from "./test/diagnostics.js";
 
 const safe = resumeSafetyCheck(config, "demo-seed");
 ```

@@ -21,9 +21,9 @@ The review organized the literature into six branches:
 
 ACBC is structurally a sequential Bayesian preference elicitation system. The three phases are coded into a single unified design matrix and estimated jointly:
 
-- **BYO** contributes K binary tasks (one per non-price attribute).
+- **BYO** contributes K binary tasks, one per non-price attribute.
 - **Screening** contributes T binary decisions against a None threshold.
-- **Tournament** contributes `t/2` multinomial choice tasks.
+- **Tournament** contributes multinomial choice tasks built from surviving concepts.
 
 Each phase carries a different information density and error scale. Partial estimation, such as using only tournament data, degrades individual-level precision.
 
@@ -32,7 +32,7 @@ Each phase carries a different information density and error scale. Partial esti
 - **Design generation is on-the-fly and per respondent**, not pre-study offline.
 - **Price should be modeled as continuous**, preferably piecewise linear with 3-5 breakpoints, not as a regular discrete attribute.
 - **Non-compensatory rules** (must-have / unacceptable) are detected from screening responses and used to regenerate the concept pool.
-- **Near-neighbor designs** trade D-efficiency for ecological validity; this is empirically justified and must be documented.
+- **Near-neighbor designs** trade D-efficiency for ecological validity. This is empirically justified and must be documented.
 
 ## Implementation gap
 

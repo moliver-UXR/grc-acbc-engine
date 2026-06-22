@@ -137,7 +137,7 @@ An array of attributes. Each attribute has:
 | `Amax` | number | Maximum number of attributes to vary per concept. |
 | `screens_per_concept_batch` | number | Concepts shown per screening screen. |
 | `total_screening_screens` | number | Target number of screening screens. |
-| `price_variation_pct` | number | ± fraction for random price variation. |
+| `price_variation_pct` | number | Fraction for random price variation, applied as plus-or-minus. |
 | `price_rounding` | number | Round price to this unit. |
 
 ### `study.phases`
@@ -162,7 +162,7 @@ Booleans enabling each phase:
 ## Loading the config
 
 ```typescript
-import { ACBCEngine, parseConfig } from "acbc-engine";
+import { ACBCEngine, parseConfig } from "./src/index.js";
 import rawConfig from "./study.json";
 
 const config = parseConfig(rawConfig);
