@@ -1,75 +1,46 @@
-# ACBC Engine
+# ACBC Engine Documentation
 
-An open-source TypeScript engine for Adaptive Choice-Based Conjoint (ACBC) surveys. It runs the full three-phase respondent workflow, Build Your Own, Screening, and Choice Tournament, and exports a unified design matrix for Multinomial Logit or Hierarchical Bayes estimation. The engine is framework-agnostic and pairs with survey shells such as SurveyJS or OpenSurvey.js.
+> Complete documentation for the Adaptive Choice-Based Conjoint (ACBC) Engine.
 
-## What ACBC does
+---
 
-Standard Choice-Based Conjoint (CBC) shows every respondent the same pre-built choice tasks. ACBC adapts the survey to each respondent. It learns the respondent's preferred concept in the BYO phase, generates nearby concepts for possibility screening, detects non-compensatory must-have and unacceptable rules, then runs a customized choice tournament among the surviving concepts. This usually produces stronger individual-level utility estimates than standard CBC for products with five or more attributes.
+## For New Developers
 
-## Key features
+1. **[Getting Started Guide](GETTING_STARTED.md)** - Step-by-step setup and first run
+2. **[Main README](../README.md)** - Project overview, quick start, and glossary
 
-- On-the-fly, respondent-specific design generation using a near-neighbor algorithm
-- Pure reducer with an append-only event log for reproducible state
-- Deterministic seeded PRNG so the same seed reproduces the same respondent path
-- Must-have and unacceptable cutoff detection with automatic replacement-card generation
-- Unified effects-coded design matrix across all phases
-- Browser-native streaming aggregate MNL for field monitoring
-- HB server endpoint contract for server-side estimation
-- Robotic respondent harness for design-quality validation
-- Zero mandatory framework dependencies
+## Core Documentation
 
-## Installation
+3. **[Architecture Overview](ARCHITECTURE.md)** - Layered architecture and design principles
+4. **[Data Flow Deep Dive](DATA_FLOW.md)** - Visual walkthrough of data through every stage
+5. **[Module Deep Dive](MODULES.md)** - Detailed explanation of every source file
 
-```bash
-npm install
-npm run build
-```
+## Reference Documentation
 
-## Quick start
+6. **[API Reference](API.md)** - Complete public API with examples
+7. **[Study Configuration](CONFIG.md)** - Configuration schema and parameter guide
+8. **[Survey Phases](PHASES.md)** - Detailed behavior of each survey phase
+9. **[Estimation](ESTIMATION.md)** - Statistical estimation methods (MNL and HB)
+10. **[Validation](VALIDATION.md)** - Testing, robotic respondents, and diagnostics
 
-```typescript
-import { ACBCEngine, MemoryStorage } from "./src/index.js";
-import config from "./test/fixtures/sample-study.json";
+## Research Background
 
-const engine = new ACBCEngine(
-  "study-1",
-  "respondent-42",
-  config,
-  "deterministic-seed",
-  new MemoryStorage()
-);
+11. **[SLR Summary](SLR_SUMMARY.md)** - Systematic Literature Review findings
+12. **[Requirements Spec](../ACBC_SLR_AdaptiveEngine_Requirements.md)** - Full requirements document
 
-engine.start();
+---
 
-engine.submitEvent({
-  type: "BYO_SUBMITTED",
-  answers: {
-    brand: "brand_a",
-    price: "price_mid",
-    color: "color_red",
-  },
-});
+## Quick Navigation by Task
 
-console.log(engine.getState().phase);
-```
-
-## Running tests
-
-```bash
-npm test                 # vitest run
-npm run typecheck        # tsc --noEmit
-```
-
-## Documentation
-
-- [Architecture](ARCHITECTURE.md)
-- [API Reference](API.md)
-- [Study Configuration](CONFIG.md)
-- [Survey Phases](PHASES.md)
-- [Estimation](ESTIMATION.md)
-- [Validation](VALIDATION.md)
-- [Systematic Literature Review Summary](SLR_SUMMARY.md)
-
-## License
-
-MIT. The engine core is framework-agnostic. Optional adapters for SurveyJS (MIT) and OpenSurvey.js (AGPL-3.0) live under `src/integration/` and follow the licensing expectations of their respective platforms.
+| I want to... | Read this |
+|-------------|----------|
+| Set up the project | [Getting Started](GETTING_STARTED.md) |
+| Understand the big picture | [Architecture](ARCHITECTURE.md) |
+| Trace how data flows | [Data Flow](DATA_FLOW.md) |
+| Understand a specific file | [Module Deep Dive](MODULES.md) |
+| Call the API | [API Reference](API.md) |
+| Write a study config | [Configuration](CONFIG.md) |
+| Understand survey phases | [Phases](PHASES.md) |
+| Run estimation | [Estimation](ESTIMATION.md) |
+| Validate design quality | [Validation](VALIDATION.md) |
+| Understand the research | [SLR Summary](SLR_SUMMARY.md) |
