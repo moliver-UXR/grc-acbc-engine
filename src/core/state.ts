@@ -41,6 +41,35 @@ export class SessionStorageAdapter implements EventStorage {
   clear(): void { sessionStorage.removeItem(this.key); }
 }
 
+export class SessionStorage implements EventStorage {
+  private key: string;
+
+  constructor(studyId: string, respondentId: string) {
+    this.key = `acbc:${studyId}:${respondentId}`;
+  }
+
+  load(): EventLog | null {
+    if (typeof sessionStorage === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem(this.key);
+      if (!raw) return null;
+      return JSON.parse(raw) as EventLog;
+    } catch {
+      return null;
+    }
+  }
+
+  save(log: EventLog): void {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem(this.key, JSON.stringify(log));
+  }
+
+  clear(): void {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.removeItem(this.key);
+  }
+}
+
 export function createEventLog(initialState: EngineState): EventLog {
   return { events: [], initialState };
 }
