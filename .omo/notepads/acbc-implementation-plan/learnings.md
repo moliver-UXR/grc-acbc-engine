@@ -317,3 +317,24 @@ px tsc --noEmit\ passes (exit 0).
 - Clarified must-have detection requires that no other level of the attribute has been accepted.
 - Verified no source files were modified; only `doc/*.md` and `.omo/notepads/acbc-implementation-plan/learnings.md` changed.
 
+## 2026-06-21 — LSP type errors fixed in test/harness.ts and test/diagnostics.ts
+
+- `test/harness.ts:305`: replaced `config.study.studyId ?? "cohort-study"` with the literal `"cohort-study"`. `StudyConfig.study` has no `studyId` field (only `attributes`, `design`, `phases`, `estimation`), so the optional-chain access was a phantom property the LSP correctly flagged. `simulateRespondent` already takes `studyId` as its first string argument, so a literal fallback is semantically correct and matches the pattern used in `test/diagnostics.ts` (`"diag-study"`).
+- `test/diagnostics.ts:243`: replaced `storage.saved ?? { events: [], initialState: finalState }` with `storage.load() ?? { events: [], initialState: finalState }`. `MemoryStorage` (and the `EventStorage` interface) exposes `load(): EventLog | null`, not a `saved` property. The fix uses the real API and preserves the same fallback semantics.
+- No changes to `StudyConfig`, `MemoryStorage`, `EventStorage`, or any file outside the two test files.
+- These errors were only visible to the LSP because `tsconfig.json` includes only `src/**/*`; `tsc --noEmit` does not typecheck `test/**/*`. The fixes are still correct TypeScript.
+- Verification: `npx vitest run test/unit/harness.test.ts test/unit/diagnostics.test.ts` — 19/19 pass (8 harness + 11 diagnostics).
+
+## 2026-06-21 — README.md second-half cleanup
+
+- Preserved lines 1-432 of `README.md` exactly, except for fixing corrupted code-fence openings (`\bash`, `\typescript`) and their closing backticks.
+- Removed all control-character artifacts (`\b`, `\t`, `\r`, `\a`) from the second half.
+- Replaced the verbose Module Reference file-by-file listing with a concise directory summary linking to `doc/MODULES.md`.
+- Kept the Configuration schema example and moved parameter tuning guidance to `doc/CONFIG.md`.
+- Fixed the `StreamingMNL` example to show the real constructor options (`learningRate`, `maxIterations`, `convergenceThreshold`, `columns`).
+- Replaced the inaccurate `ACBCEngine` interface snippet with a minimal real usage example from `src/index.ts`.
+- Replaced generic Development Workflow boilerplate with concrete commands and a practical validation example.
+- Added a "Roadmap / Future Work" section with the required bullets.
+- Verified `npx tsc --noEmit` still passes.
+- Only `README.md` and `.omo/notepads/acbc-implementation-plan/learnings.md` were modified; no source files changed.
+

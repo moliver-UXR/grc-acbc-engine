@@ -109,7 +109,7 @@ A final question asks: \"How likely are you to buy this product?\" on a 1-5 scal
 
 ### Install and Build
 
-`ash
+```bash
 # Clone or navigate to the project
 cd \"Adaptive Conjoint Analysis (ACBC)\"
 
@@ -121,11 +121,11 @@ npm run build
 
 # Run tests
 npm test
-`
+```
 
 ### Minimal Usage
 
-`	ypescript
+```typescript
 import { ACBCEngine, MemoryStorage } from \"./src/index.js\";
 
 // 1. Define your study configuration
@@ -201,15 +201,15 @@ console.log(engine.getState().phase); // \"SCREENING\"
 
 // 5. Continue submitting events for each phase...
 // The engine advances through phases automatically.
-`
+```
 
 ### Run the Robotic QA Script
 
 The project includes a CLI tool that simulates respondents and prints quality diagnostics:
 
-`ash
+```bash
 npx tsx scripts/robotic-run.ts --respondents 50 --seed qa-run
-`
+```
 
 Output includes D-efficiency, duplicate rate, level balance, resume safety, and MNL utilities.
 
@@ -432,133 +432,18 @@ Here is the complete data flow for a single respondent:
 
 ## Module Reference
 
-### src/core/ — The Engine Core
+The source is organized into a small set of top-level areas:
 
-#### 	ypes.ts — Domain Types
-Defines every data structure the engine uses:
-- **Phase** — Union type: \"BYO\" | \"SCREENING\" | \"CONFIRM_MUST_HAVE\" | ... | \"DONE\"
-- **StudyConfig** — The study configuration schema (attributes, design params, phases, estimation)
-- **EngineState** — Complete respondent state snapshot
-- **Concept** — A product configuration with levels and optional price
-- **CutoffRule** — A must-have or unacceptable rule
-- **ScreeningResponse** — One concept's possible/not-possible answer
-- **TournamentRound** / **TournamentTask** — Bracket structure
+- `src/core/` - state machine, domain types, events, config validation, event-log persistence, and deterministic PRNG
+- `src/design/` - near-neighbor concept generation, level balancing, replacement cards, and price handling
+- `src/detection/` - must-have and unacceptable cutoff rule detection
+- `src/estimation/` - effects-coded design matrix builder, streaming MNL estimator, and HB server contract
+- `src/integration/` - optional survey shell adapters (currently SurveyJS)
+- `test/` - unit tests, integration tests, robotic respondent harness, and diagnostic checks
+- `scripts/` - CLI tooling such as the robotic QA runner
+- `doc/` - detailed architecture, API, config, and validation guides
 
-#### events.ts — Event System
-Defines the discriminated union of all events the engine accepts:
-- BYO_SUBMITTED — carries nswers: Record<string, string>
-- SCREEN_SUBMITTED — carries esponses: ScreeningResponse[]
-- RULE_CONFIRMED / RULE_REJECTED — no payload
-- TOURNAMENT_TASK_SUBMITTED — carries matchupId and chosenConceptId
-- CALIBRATION_SUBMITTED — carries nswer: CalibrationAnswer
-
-Each event has a corresponding Zod schema for runtime validation.
-
-#### config.ts — Configuration Validation
-Uses Zod to validate the study JSON at runtime:
-- parseConfig(json) — throws ConfigError on invalid input
-- safeParseConfig(json) — returns { success, data } or { success, error }
-
-#### educer.ts — Pure State Machine
-The heart of the engine. A pure function:
-`	ypescript
-reduce(state: EngineState, event: EngineEvent, config: StudyConfig): EngineState
-`
-- Takes the current state and an event
-- Returns a **new** state (never mutates the old one)
-- Handles phase transitions automatically
-- Calls design generation, cutoff detection, and tournament building as needed
-
-#### state.ts — Event Log Persistence
-Manages the append-only event log:
-- **EventLog** — stores initial state + array of persisted events
-- **EventStorage** — interface with load(), save(), clear()
-- **MemoryStorage** — in-memory implementation (for tests)
-- **SessionStorage** — browser sessionStorage adapter (survives page refresh)
-- **eplay(log, config)** — replays all events through the reducer to reconstruct state
-
-#### prng.ts — Deterministic Random Number Generator
-Uses the **sfc32** algorithm seeded from a string:
-- 
-ext() — returns a float in [0, 1)
-- andInt(min, max) — returns an integer in [min, max]
-- shuffle(array) — Fisher-Yates shuffle
-- pick(array) — random element selection
-
-**Why deterministic?** The same seed + same event sequence = same final state. This enables reproducible testing and QA.
-
----
-
-### src/design/ — Concept Generation
-
-#### generator.ts — Near-Neighbor Algorithm
-Generates T concepts near C0:
-1. Pick a random number of attributes to vary (Amin to Amax)
-2. Randomly select which attributes to vary
-3. For each varied attribute, pick a new level (respecting cutoff rules)
-4. Check for duplicates
-5. Compute price with random variation
-6. Repeat until T unique concepts are generated
-
-#### alancer.ts — Level Balance
-Tracks how often each level appears and weights selection to favor underrepresented levels. This ensures the design matrix is well-balanced for estimation.
-
-#### eplacement.ts — Replacement Card Generation
-When a confirmed cutoff rule invalidates existing concepts, this module:
-1. Filters out invalid concepts
-2. Generates replacement concepts that satisfy all confirmed rules
-3. Maintains the target pool size T
-
-#### price.ts — Price Handling
-- asePrice(concept, config) — sums price_increment values
-- pplyPriceVariation(base, config, rng) — applies ±variation% with rounding
-- computePrice(concept, config, rng) — combines base + variation
-- piecewisePriceVector(price, breakpoints) — encodes price for piecewise-linear models
-
----
-
-### src/detection/ — Pattern Detection
-
-#### cutoff.ts — Cutoff Rule Detection
-Builds an **exposure table** tracking how often each attribute level was shown and whether it was accepted or rejected:
-- **Unacceptable detection:** A level is rejected 100% of the time (minimum 3 exposures)
-- **Must-have detection:** A level is accepted 100% of the time AND no other level of that attribute was ever accepted
-
----
-
-### src/estimation/ — Statistical Estimation
-
-#### matrix.ts — Design Matrix Builder
-Builds a unified effects-coded design matrix from the final EngineState:
-- **Effects coding:** For L levels, creates L-1 columns. The last level is aliased as -1.
-- **Rows:** BYO rows → Screening rows → Tournament rows → Calibration row
-- **Columns:** effect columns + price + none_threshold + task_id + phase
-
-#### mnl.ts — Streaming Multinomial Logit
-A browser-native aggregate estimator using gradient ascent:
-- Binary (Bernoulli) likelihood for BYO and Screening rows
-- Softmax likelihood for Tournament rows
-- Useful for field monitoring, not a substitute for HB
-
-#### hb-interface.ts — Hierarchical Bayes Contract
-Defines the wire format for sending data to a server-side HB estimator:
-- serializeMatrix(matrix) — converts DesignMatrix to JSON payload
-- parseHBResult(response, matrix) — validates and parses server response
-- computeAttributeImportance() — derives importance scores from utilities
-
----
-
-### src/integration/ — Survey Shell Adapters
-
-#### surveyjs-adapter.ts — SurveyJS Integration
-A ~1400-line adapter that:
-- Builds SurveyJS pages for each phase
-- Renders concept cards, tournament tables, and calibration questions
-- Captures user input and submits events to the engine
-- Injects CSS for styling
-- Handles reactive re-rendering on state changes
-
-**Key principle:** The adapter never mutates engine state. All changes flow through engine.submitEvent().
+See [doc/MODULES.md](doc/MODULES.md) for a file-by-file deep dive.
 
 ---
 
@@ -568,70 +453,65 @@ A ~1400-line adapter that:
 
 The engine is driven entirely by a JSON configuration. Here is the complete schema:
 
-`json
+```json
 {
-  \"study\": {
-    \"attributes\": [
+  "study": {
+    "attributes": [
       {
-        \"id\": \"brand\",              // Machine identifier
-        \"label\": \"Brand\",            // Display label
-        \"in_byo\": true,               // Show in Build Your Own phase
-        \"price_type\": \"none\",        // \"none\" | \"component\" | \"summed\"
-        \"levels\": [                   // Available options
-          { \"id\": \"apple\", \"label\": \"Apple\" },
-          { \"id\": \"dell\", \"label\": \"Dell\" }
+        "id": "brand",
+        "label": "Brand",
+        "in_byo": true,
+        "price_type": "none",
+        "levels": [
+          { "id": "apple", "label": "Apple" },
+          { "id": "dell", "label": "Dell" }
         ]
       }
     ],
-    \"design\": {
-      \"T\": 20,                        // Total screening concepts to generate
-      \"Amin\": 2,                      // Min attributes to vary per concept
-      \"Amax\": 4,                      // Max attributes to vary per concept
-      \"screens_per_concept_batch\": 4, // Concepts per screening screen
-      \"total_screening_screens\": 8,   // Total screening screens
-      \"price_variation_pct\": 0.3,     // ±30% price variation
-      \"price_rounding\": 1             // Round to nearest 
+    "design": {
+      "T": 20,
+      "Amin": 2,
+      "Amax": 4,
+      "screens_per_concept_batch": 4,
+      "total_screening_screens": 8,
+      "price_variation_pct": 0.3,
+      "price_rounding": 1
     },
-    \"phases\": {
-      \"byo\": true,                    // Enable Build Your Own
-      \"screening\": true,              // Enable Screening
-      \"must_have\": true,              // Enable must-have detection
-      \"unacceptable\": true,           // Enable unacceptable detection
-      \"tournament\": true,             // Enable Choice Tournament
-      \"calibration\": false            // Enable Calibration (optional)
+    "phases": {
+      "byo": true,
+      "screening": true,
+      "must_have": true,
+      "unacceptable": true,
+      "tournament": true,
+      "calibration": false
     },
-    \"estimation\": {
-      \"method\": \"mnl\",              // \"hb\" | \"mnl\" | \"monotone_regression\"
-      \"price_function\": \"piecewise\", // \"linear\" | \"log_linear\" | \"piecewise\"
-      \"piecewise_breakpoints\": [100, 200, 300] // For piecewise pricing
+    "estimation": {
+      "method": "mnl",
+      "price_function": "piecewise",
+      "piecewise_breakpoints": [100, 200, 300]
     }
   }
 }
-`
+```
 
-### Parameter Guidelines
-
-| Parameter | Typical Value | Notes |
-|-----------|--------------|-------|
-| T | 15-25 | More concepts = more screening data but longer survey |
-| Amin | 2 | Minimum variation for near-neighbor generation |
-| Amax | 4 | For 8-9 attribute studies; scale with attribute count |
-| screens_per_concept_batch | 3-5 | Concepts shown per screen |
-| 	otal_screening_screens | 7-9 | Target number of screening screens |
-| price_variation_pct | 0.3 | ±30% around base price |
+See [doc/CONFIG.md](doc/CONFIG.md) for field descriptions and parameter tuning guidelines.
 
 ---
 
 ## Testing & Validation
 
 ### Unit Tests
-`ash
+
+```bash
 npm test
-`
-Tests cover every module: config validation, design generation, cutoff detection, matrix building, MNL estimation, state management, and the SurveyJS adapter.
+```
+
+Tests cover config validation, design generation, cutoff detection, matrix building, MNL estimation, state management, and the SurveyJS adapter.
 
 ### Integration Tests
-	est/integration/full-pipeline.test.ts runs a complete respondent through all phases and verifies:
+
+`test/integration/full-pipeline.test.ts` runs a complete respondent through all phases and verifies:
+
 - The survey reaches DONE phase
 - The design matrix contains rows from all three phases
 - MNL estimation produces finite utilities
@@ -639,14 +519,16 @@ Tests cover every module: config validation, design generation, cutoff detection
 - Resume safety (replay produces identical state)
 
 ### Robotic Respondent Harness
+
 Simulates respondents with known true utilities to validate design quality:
 
-`ash
+```bash
 npx tsx scripts/robotic-run.ts --respondents 50 --seed qa-run
-`
+```
 
 ### Diagnostic Metrics
-- **D-efficiency:** det(X'X)^(1/p) — measures design matrix quality (higher is better)
+
+- **D-efficiency:** det(X'X)^(1/p) - measures design matrix quality (higher is better)
 - **Level balance:** How evenly each attribute level appears
 - **Duplicate rate:** Fraction of exact duplicate concepts (should be near zero)
 - **Resume safety:** Replay produces byte-identical state
@@ -659,7 +541,7 @@ The engine is **framework-agnostic**. It exposes state snapshots and accepts eve
 
 ### Integration Pattern
 
-`
+```
 Survey Shell                    ACBC Engine
 ┌─────────────┐                 ┌─────────────┐
 │  Render UI  │◄── getState() ──│  EngineState│
@@ -667,25 +549,47 @@ Survey Shell                    ACBC Engine
 │  Input      │── submitEvent()─▶│  Reducer    │
 │             │◄── newState ────│             │
 └─────────────┘                 └─────────────┘
-`
+```
 
 ### SurveyJS Adapter
-The included surveyjs-adapter.ts provides:
-- enderACBCSurvey(survey, engine, options) — builds complete survey
-- injectACBCStyles(cssPrefix) — injects default CSS
-- onStateChange(survey, callback) — register state change listener
+
+The included `surveyjs-adapter.ts` provides:
+
+- `renderACBCSurvey(survey, engine, options)` - builds a complete survey
+- `injectACBCStyles(cssPrefix)` - injects default CSS
+- `onStateChange(survey, callback)` - registers a state change listener
 
 ### Building Your Own Adapter
-Implement the ACBCEngine interface:
-`	ypescript
-interface ACBCEngine {
-  getState(): EngineState;
-  submitEvent(event: EngineEvent): EngineState;
-  getConfig(): StudyConfig;
-}
-`
 
-Then render UI based on state.phase and submit events on user input.
+Use the `ACBCEngine` class directly:
+
+```typescript
+import { ACBCEngine, MemoryStorage } from "./src/index.js";
+
+const engine = new ACBCEngine(
+  "study-1",
+  "respondent-1",
+  config,
+  "seed",
+  new MemoryStorage()
+);
+
+engine.start();
+
+// Render UI from engine.getState()
+// On user input, submit events:
+engine.submitEvent({
+  type: "BYO_SUBMITTED",
+  answers: { brand: "apple", ram: "16gb" },
+});
+
+// Latest state is returned by submitEvent or via listeners
+engine.on("stateChange", (state) => {
+  console.log(state.phase);
+});
+```
+
+Then render UI based on `state.phase` and submit events on user input.
 
 ---
 
@@ -693,34 +597,41 @@ Then render UI based on state.phase and submit events on user input.
 
 ### After the Survey: Building the Design Matrix
 
-`	ypescript
-import { buildDesignMatrix } from \"./src/estimation/matrix.js\";
+```typescript
+import { buildDesignMatrix } from "./src/estimation/matrix.js";
 
 const matrix = buildDesignMatrix(engine.getState(), config);
 // matrix.header → column definitions
 // matrix.rows → one row per choice observation
 // matrix.metadata → respondent and study info
-`
+```
 
 ### Quick Check: Streaming MNL (Browser)
 
-`	ypescript
-import { StreamingMNL } from \"./src/estimation/mnl.js\";
+```typescript
+import { StreamingMNL } from "./src/estimation/mnl.js";
 
-const mnl = new StreamingMNL({ columns: matrix.header });
+const mnl = new StreamingMNL({
+  learningRate: 0.05,
+  maxIterations: 1000,
+  convergenceThreshold: 1e-6,
+  columns: matrix.header,
+});
+
 for (const row of matrix.rows) {
   mnl.update(row);
 }
+
 const result = mnl.estimate();
-console.log(result.utilities);    // Part-worth utilities
-console.log(result.converged);    // Did gradient ascent converge?
+console.log(result.utilities);     // Part-worth utilities
+console.log(result.converged);     // Did gradient ascent converge?
 console.log(result.logLikelihood); // Model fit
-`
+```
 
 ### Production: Hierarchical Bayes (Server)
 
-`	ypescript
-import { serializeMatrix, parseHBResult } from \"./src/estimation/hb-interface.js\";
+```typescript
+import { serializeMatrix, parseHBResult } from "./src/estimation/hb-interface.js";
 
 // Serialize for server
 const payload = serializeMatrix(matrix, {
@@ -730,8 +641,8 @@ const payload = serializeMatrix(matrix, {
 });
 
 // Send to your R/Python/Stan HB service
-const response = await fetch(\"/api/hb-estimate\", {
-  method: \"POST\",
+const response = await fetch("/api/hb-estimate", {
+  method: "POST",
   body: JSON.stringify(payload),
 });
 
@@ -740,7 +651,7 @@ const result = parseHBResult(await response.json(), matrix);
 console.log(result.respondentUtilities); // Individual part-worths
 console.log(result.attributeImportance); // Importance scores (%)
 console.log(result.noneUtility);         // None threshold
-`
+```
 
 ---
 
@@ -750,33 +661,27 @@ console.log(result.noneUtility);         // None threshold
 
 | Command | Description |
 |---------|-------------|
-| 
-pm install | Install dependencies |
-| 
-pm run build | Compile TypeScript to dist/ |
-| 
-pm run typecheck | Type-check without emitting |
-| 
-pm test | Run all tests with vitest |
-| 
-px tsx scripts/robotic-run.ts | Run robotic QA simulation |
+| `npm install` | Install dependencies |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run typecheck` | Type-check without emitting |
+| `npm test` | Run all tests with vitest |
+| `npx tsx scripts/robotic-run.ts` | Run robotic QA simulation |
 
-### Adding a New Attribute Type
+### Practical Example: Validate a New Study Config
 
-1. Update StudyConfig in 	ypes.ts if needed
-2. Update Zod schema in config.ts
-3. Update the reducer in educer.ts if phase behavior changes
-4. Update the design matrix builder in matrix.ts
-5. Add unit tests
+```bash
+# 1. Add your config to a JSON file
+cp test/fixtures/sample-study.json my-study.json
 
-### Adding a New Phase
+# 2. Type-check the project
+npm run typecheck
 
-1. Add the phase to the Phase type in 	ypes.ts
-2. Add a new event type in events.ts
-3. Add a case in the educe() function in educer.ts
-4. Update the SurveyJS adapter to render the new phase
-5. Update the design matrix builder to emit rows for the new phase
-6. Add tests
+# 3. Run a small robotic cohort against your config
+npx tsx scripts/robotic-run.ts --respondents 10 --seed my-study-test
+
+# 4. Run the test suite before committing
+npm test
+```
 
 ---
 
@@ -784,10 +689,10 @@ px tsx scripts/robotic-run.ts | Run robotic QA simulation |
 
 | Term | Definition |
 |------|-----------|
-| **ACBC** | Adaptive Choice-Based Conjoint — a personalized preference survey method |
-| **CBC** | Choice-Based Conjoint — the standard (non-adaptive) version |
+| **ACBC** | Adaptive Choice-Based Conjoint - a personalized preference survey method |
+| **CBC** | Choice-Based Conjoint - the standard (non-adaptive) version |
 | **Attribute** | A product feature (e.g., Brand, Color, Price) |
-| **Level** | A specific value of an attribute (e.g., \"Red\" is a level of Color) |
+| **Level** | A specific value of an attribute (e.g., "Red" is a level of Color) |
 | **Concept** | A complete product configuration (one level per attribute) |
 | **C0** | The respondent's ideal concept from the BYO phase |
 | **Utility / Part-worth** | A numerical value representing how much a respondent values a level |
@@ -797,23 +702,35 @@ px tsx scripts/robotic-run.ts | Run robotic QA simulation |
 | **Unacceptable** | A level the respondent will never accept |
 | **Cutoff Rule** | A must-have or unacceptable constraint |
 | **Design Matrix** | A numerical table encoding all choice observations for estimation |
-| **MNL** | Multinomial Logit — a statistical model for choice data |
-| **HB** | Hierarchical Bayes — a more powerful estimation method for individual utilities |
+| **MNL** | Multinomial Logit - a statistical model for choice data |
+| **HB** | Hierarchical Bayes - a more powerful estimation method for individual utilities |
 | **D-efficiency** | A measure of design matrix quality (higher = better) |
 | **Reducer** | A pure function that transforms state given an event |
 | **Event Log** | An append-only record of all events, enabling replay |
 
 ---
 
+## Roadmap / Future Work
+
+- Real HB runtime (Python/R/Stan/WASM)
+- Performance benchmarks and latency optimization
+- OpenSurvey adapter
+- Framework examples (React, Vue, Svelte)
+- fast-check property-based tests
+- Automated accessibility audit
+- Plugin API for custom storage/scoring/renderers
+
+---
+
 ## Further Reading
 
-- [ACBC_SLR_AdaptiveEngine_Requirements.md](ACBC_SLR_AdaptiveEngine_Requirements.md) — The canonical specification with systematic literature review findings
-- [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) — Detailed layered architecture
-- [doc/API.md](doc/API.md) — Complete public API reference
-- [doc/CONFIG.md](doc/CONFIG.md) — Configuration schema guide
-- [doc/PHASES.md](doc/PHASES.md) — Survey phase details
-- [doc/ESTIMATION.md](doc/ESTIMATION.md) — Estimation methods
-- [doc/VALIDATION.md](doc/VALIDATION.md) — Testing and validation
+- [ACBC_SLR_AdaptiveEngine_Requirements.md](ACBC_SLR_AdaptiveEngine_Requirements.md) - The canonical specification with systematic literature review findings
+- [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) - Detailed layered architecture
+- [doc/API.md](doc/API.md) - Complete public API reference
+- [doc/CONFIG.md](doc/CONFIG.md) - Configuration schema guide
+- [doc/PHASES.md](doc/PHASES.md) - Survey phase details
+- [doc/ESTIMATION.md](doc/ESTIMATION.md) - Estimation methods
+- [doc/VALIDATION.md](doc/VALIDATION.md) - Testing and validation
 
 ---
 

@@ -240,7 +240,7 @@ export function resumeSafetyCheck(config: StudyConfig, seed: string): boolean {
   }
 
   const finalState = engine.getState();
-  const log: EventLog = storage.saved ?? { events: [], initialState: finalState };
+  const log: EventLog = storage.load() ?? { events: [], initialState: finalState };
   const replayed = replay(log, config);
 
   return finalState.phase === "DONE" && stateFingerprint(finalState) === stateFingerprint(replayed);

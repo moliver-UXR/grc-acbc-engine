@@ -302,7 +302,7 @@ export function simulateCohort(
     };
     runs.push(
       simulateRespondent(
-        config.study.studyId ?? "cohort-study",
+        "cohort-study",
         `robotic-${i}`,
         config,
         respondentOptions,
