@@ -122,8 +122,15 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
       return { ...state, phase: "SCREENING" };
     case "TOURNAMENT":
       if (event.type === "TOURNAMENT_TASK_SUBMITTED") {
+        const currentTask = state.tournamentRounds[state.currentTournamentRound].tasks[state.currentTournamentTask];
+        let winnerId = event.chosenConceptId;
+        if (winnerId === null) {
+          // FR-4 tie resolution: coin flip using SeededRNG seeded per round+task for determinism
+          const rng = new SeededRNG(`${state.rngSeed}-tie-r${state.currentTournamentRound}-t${state.currentTournamentTask}`);
+          winnerId = rng.pick(currentTask.concepts).id;
+        }
         const rounds = state.tournamentRounds.map((r, idx) => idx !== state.currentTournamentRound ? r : {
-          ...r, tasks: r.tasks.map((t, ti) => ti !== state.currentTournamentTask ? t : { ...t, winnerConceptId: event.chosenConceptId })
+          ...r, tasks: r.tasks.map((t, ti) => ti !== state.currentTournamentTask ? t : { ...t, winnerConceptId: winnerId })
         });
         const nextTask = state.currentTournamentTask + 1;
         const cur = rounds[state.currentTournamentRound];

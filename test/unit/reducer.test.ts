@@ -109,6 +109,57 @@ describe("reduce - TOURNAMENT phase", () => {
     }, config);
     expect(state.tournamentRounds[0].tasks[0].winnerConceptId).toBe(winnerId);
   });
+
+  it("resolves tie (null chosenConceptId) by coin flip to one of the 3 concepts", () => {
+    let state = createInitialState("study-1", "resp-1", config, "seed-123");
+    state = reduce(state, {
+      type: "BYO_SUBMITTED",
+      answers: { brand: "brand_a", price: "price_low", color: "color_red" },
+    }, config);
+    const responses = state.conceptPool.slice(0, 6).map((c, i) => ({
+      conceptId: c.id, possible: i % 2 === 0, screenIndex: Math.floor(i / 3),
+    }));
+    state = reduce(state, { type: "SCREEN_SUBMITTED", responses }, config);
+    expect(state.phase).toBe("TOURNAMENT");
+    const firstTask = state.tournamentRounds[0].tasks[0];
+    const validIds = firstTask.concepts.map(c => c.id);
+    state = reduce(state, {
+      type: "TOURNAMENT_TASK_SUBMITTED",
+      matchupId: "task-0",
+      chosenConceptId: null,
+    }, config);
+    const winner = state.tournamentRounds[0].tasks[0].winnerConceptId;
+    expect(winner).not.toBeNull();
+    expect(validIds).toContain(winner);
+  });
+
+  it("coin flip tie resolution is deterministic for the same seed", () => {
+    const setupTournament = (seed: string): EngineState => {
+      let s = createInitialState("study-1", "resp-1", config, seed);
+      s = reduce(s, {
+        type: "BYO_SUBMITTED",
+        answers: { brand: "brand_a", price: "price_low", color: "color_red" },
+      }, config);
+      const responses = s.conceptPool.slice(0, 6).map((c, i) => ({
+        conceptId: c.id, possible: i % 2 === 0, screenIndex: Math.floor(i / 3),
+      }));
+      s = reduce(s, { type: "SCREEN_SUBMITTED", responses }, config);
+      return s;
+    };
+    const state1 = setupTournament("seed-123");
+    const state2 = setupTournament("seed-123");
+    const winner1 = reduce(state1, {
+      type: "TOURNAMENT_TASK_SUBMITTED",
+      matchupId: "task-0",
+      chosenConceptId: null,
+    }, config).tournamentRounds[0].tasks[0].winnerConceptId;
+    const winner2 = reduce(state2, {
+      type: "TOURNAMENT_TASK_SUBMITTED",
+      matchupId: "task-0",
+      chosenConceptId: null,
+    }, config).tournamentRounds[0].tasks[0].winnerConceptId;
+    expect(winner1).toBe(winner2);
+  });
 });
 
 describe("reduce - CALIBRATION phase", () => {
