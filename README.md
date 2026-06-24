@@ -727,7 +727,63 @@ This repo includes a complete Qualtrics instrument for the AuditBoard GRC buyer-
 - `src/integration/qualtrics-adapter.ts` — serializes `EngineState` to flat `QualtricsTask` JSON and deserializes Qualtrics choices back to `EngineEvent`
 - `src/server.ts` — Node http server with `POST /init` and `POST /next`; run with `node --import tsx src/server.ts` or `PORT=3000 tsx src/server.ts`
 
-**Survey assets** (in `survey/`): paste `grc-task-template.html` into the Qualtrics question body, `grc-acbc-task.js` into its JS editor, and follow `survey-flow.md` to wire up the Survey Flow. See `api-contract.md` for the full JSON contract.
+### Running the server locally
+
+**Requirements:** Node 18+ (for `crypto.randomUUID` and native `fetch` in tests). No database needed — sessions are in-memory (sufficient for a fielding run; restarting the server clears all sessions).
+
+```bash
+cd /path/to/grc-acbc-engine
+npm install
+npx tsx src/server.ts           # listens on port 3000 by default
+PORT=8080 npx tsx src/server.ts # custom port
+```
+
+The server logs session activity to stdout with `[init]`, `[next]`, and `[error]` prefixes, making it straightforward to trace a respondent's path through the study.
+
+### Testing with curl
+
+```bash
+# Initialize a session (returns the BYO task and a sessionId)
+curl -s -X POST http://localhost:3000/init \
+  -H "Content-Type: application/json" \
+  -d '{"studyId":"grc-q3-2026","respondentId":"test-001","profile":{}}' | jq .
+
+# The response shape:
+# {
+#   "sessionId": "<uuid>",
+#   "acbcTaskJson": "<JSON string — parse this to get the task object>",
+#   "acbcPhase": "BYO",
+#   "acbcIteration": "0",
+#   "acbcDone": "false"
+# }
+
+# Advance the session with a BYO answer (use the sessionId from /init)
+curl -s -X POST http://localhost:3000/next \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "<sessionId from above>",
+    "taskId": "byo-0",
+    "taskType": "byo",
+    "choice": {
+      "regulatory_coverage": "full_suite",
+      "deployment": "tenant_isolated",
+      "ai_autonomy": "ai_suggests",
+      "tprm": "advanced",
+      "time_to_value": "90_days",
+      "integrations": "broad",
+      "annual_price": "tier_2",
+      "pricing_model": "per_user"
+    }
+  }' | jq .
+```
+
+### Qualtrics setup
+
+1. Deploy the server (e.g., via `fly deploy` or an EC2 instance) and copy the base URL into an `acbcEngineUrl` Embedded Data field in your Qualtrics survey.
+2. Paste `survey/grc-task-template.html` into the ACBC Task question body.
+3. Paste `survey/grc-acbc-task.js` into the question's JavaScript editor.
+4. Follow `survey/survey-flow.md` for the complete 9-section Survey Flow wiring (Web Service calls, branch logic, Embedded Data fields).
+5. See `survey/api-contract.md` for the full `/init` and `/next` JSON contract, including every field the server reads and writes.
 
 ---
 

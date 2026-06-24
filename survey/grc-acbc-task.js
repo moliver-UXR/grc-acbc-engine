@@ -23,6 +23,8 @@ Qualtrics.SurveyEngine.addOnload(function () {
     return;
   }
 
+  console.log('[acbc] addOnload parsed task:', task.taskType, 'taskId:', task.taskId);
+
   // Write prompt
   document.getElementById('acbc-prompt').textContent = task.prompt;
 
@@ -55,6 +57,7 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function () {
   try { task = JSON.parse(rawTask); } catch (e) { return; }
 
   var choice = collectChoice(task);
+  console.log('[acbc] addOnPageSubmit choice:', choice);
   Qualtrics.SurveyEngine.setEmbeddedData('acbcChoice', JSON.stringify(choice));
   Qualtrics.SurveyEngine.setEmbeddedData('acbcTaskId', task.taskId);
   Qualtrics.SurveyEngine.setEmbeddedData('acbcTaskType', task.taskType);
@@ -67,6 +70,7 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function () {
 // ---------------------------------------------------------------------------
 
 function renderBYO(task) {
+  console.log('[acbc] renderBYO', (task.attributes || []).length, 'attributes');
   var container = document.getElementById('acbc-byo-container');
   container.style.display = 'block';
   container.innerHTML = (task.attributes || []).map(function (attr) {
@@ -90,6 +94,7 @@ function renderBYO(task) {
 }
 
 function renderScreening(task) {
+  console.log('[acbc] renderScreening', (task.concepts || []).length, 'concepts');
   var container = document.getElementById('acbc-screening-container');
   container.style.removeProperty('display');
   container.style.display = 'flex';
@@ -142,6 +147,7 @@ function renderConfirm(task) {
 }
 
 function renderTournament(task) {
+  console.log('[acbc] renderTournament', (task.concepts || []).length, 'concepts');
   var container = document.getElementById('acbc-tournament-container');
   container.style.display = 'block';
   var concepts = task.concepts || [];
@@ -202,6 +208,7 @@ function renderTournament(task) {
 }
 
 function renderCalibration(task) {
+  console.log('[acbc] renderCalibration winner concept id:', task.winnerConcept ? task.winnerConcept.id : 'none');
   var container = document.getElementById('acbc-calibration-container');
   container.style.display = 'block';
   var winner = task.winnerConcept;

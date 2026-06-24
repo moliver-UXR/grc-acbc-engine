@@ -34,6 +34,10 @@ export interface QualtricsTask {
   winnerConcept?: QualtricsTaskConcept;
 }
 
+/**
+ * Converts the current EngineState into a flat QualtricsTask object that the
+ * Qualtrics survey shell can JSON-parse and render without knowing engine internals.
+ */
 export function serializeStateToQualtricsTask(
   state: EngineState,
   config: StudyConfig
@@ -44,6 +48,7 @@ export function serializeStateToQualtricsTask(
     return { taskId: "done", taskType: "calibration", phase: "DONE", iteration: 0, prompt: "", done: true };
   }
 
+  // BYO: return all in_byo attributes as dropdowns so the respondent can build their ideal concept.
   if (state.phase === "BYO") {
     const byoAttrs = attrs.filter((a) => a.in_byo);
     return {
@@ -61,7 +66,10 @@ export function serializeStateToQualtricsTask(
     };
   }
 
+  // SCREENING: slice the next unseen batch from the concept pool, excluding already-screened concepts.
   if (state.phase === "SCREENING") {
+    // screenedIds excludes concepts the respondent has already rated (possible/not-possible),
+    // so each concept is shown exactly once regardless of how many batches have been presented.
     const screenedIds = new Set(state.screened.map((s) => s.conceptId));
     const batch = state.conceptPool
       .filter((c) => !screenedIds.has(c.id))
@@ -85,6 +93,7 @@ export function serializeStateToQualtricsTask(
     };
   }
 
+  // CONFIRM: present a single yes/no question asking whether the detected cutoff rule is intentional.
   if (state.phase === "CONFIRM_MUST_HAVE" || state.phase === "CONFIRM_UNACCEPTABLE") {
     const rule = state.candidateRule;
     if (!rule) throw new Error("candidateRule missing during CONFIRM phase");
@@ -109,6 +118,7 @@ export function serializeStateToQualtricsTask(
     };
   }
 
+  // TOURNAMENT: render the current matchup task from the bracket.
   if (state.phase === "TOURNAMENT") {
     const currentRound = state.tournamentRounds[state.currentTournamentRound];
     if (!currentRound) throw new Error("No tournament round found");
@@ -134,6 +144,7 @@ export function serializeStateToQualtricsTask(
     };
   }
 
+  // CALIBRATION: show the tournament winner and ask for purchase-intent on a 1-5 scale.
   if (state.phase === "CALIBRATION") {
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];
     const lastTask = lastRound?.tasks[lastRound.tasks.length - 1];
@@ -160,7 +171,9 @@ export function serializeStateToQualtricsTask(
     };
   }
 
-  // REGENERATE phase — return a waiting task
+  // REGENERATE: the engine is rebuilding the concept pool after a confirmed cutoff rule.
+  // Return a screening-shaped placeholder so the Qualtrics shell has a valid task object
+  // to write to Embedded Data while the Web Service call is pending.
   return {
     taskId: "regenerate",
     taskType: "screening",

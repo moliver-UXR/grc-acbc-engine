@@ -7,8 +7,16 @@ import {
   buildEngineEventFromChoice,
 } from "./integration/qualtrics-adapter.js";
 
+// ---------------------------------------------------------------------------
+// Session store — in-process Map keyed by UUID.
+// NOTE: sessions are lost on server restart. This is acceptable for a single
+// fielding run where each respondent completes the survey in one sitting.
+// ---------------------------------------------------------------------------
 const sessions = new Map<string, ACBCEngine>();
 
+// ---------------------------------------------------------------------------
+// CORS helper — allows Qualtrics (any origin) to reach this server.
+// ---------------------------------------------------------------------------
 function cors(res: http.ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -38,10 +46,16 @@ export async function startServer(port: number): Promise<http.Server> {
 
     const url = req.url ?? "";
 
+    // -----------------------------------------------------------------------
+    // POST /init — create a new session, run BYO, return first task
+    // -----------------------------------------------------------------------
     if (req.method === "POST" && url === "/init") {
       let body: { studyId: string; respondentId: string; qualtricsResponseId?: string; profile?: Record<string, string> };
       try { body = (await readBody(req)) as typeof body; }
-      catch { json(res, 400, { error: "Invalid JSON" }); return; }
+      catch {
+        console.log("[error] /init — invalid JSON body");
+        json(res, 400, { error: "Invalid JSON" }); return;
+      }
 
       const { studyId, respondentId, qualtricsResponseId } = body;
       const seed = `${studyId}-${respondentId}-${qualtricsResponseId ?? Date.now()}`;
@@ -50,6 +64,8 @@ export async function startServer(port: number): Promise<http.Server> {
 
       const sessionId = randomUUID();
       sessions.set(sessionId, engine);
+
+      console.log(`[init] respondentId=${respondentId} studyId=${studyId} sessionId=${sessionId}`);
 
       const state = engine.getState();
       const taskJson = serializeStateToQualtricsTask(state, engine.getConfig());
@@ -63,21 +79,33 @@ export async function startServer(port: number): Promise<http.Server> {
       return;
     }
 
+    // -----------------------------------------------------------------------
+    // POST /next — advance the session by one task, return the next task
+    // -----------------------------------------------------------------------
     if (req.method === "POST" && url === "/next") {
       let body: { sessionId: string; taskId: string; taskType: string; choice: Record<string, string> };
       try { body = (await readBody(req)) as typeof body; }
-      catch { json(res, 400, { error: "Invalid JSON" }); return; }
+      catch {
+        console.log("[error] /next — invalid JSON body");
+        json(res, 400, { error: "Invalid JSON" }); return;
+      }
 
       const engine = sessions.get(body.sessionId);
-      if (!engine) { json(res, 404, { error: "Session not found" }); return; }
+      if (!engine) {
+        console.log(`[error] /next — session not found: ${body.sessionId}`);
+        json(res, 404, { error: "Session not found" }); return;
+      }
 
       let newState;
       try {
         const event = buildEngineEventFromChoice(engine.getState(), body.taskId, body.choice);
         newState = engine.submitEvent(event);
       } catch (err) {
+        console.log(`[error] /next — event build failed for sessionId=${body.sessionId}: ${String(err)}`);
         json(res, 400, { error: String(err) }); return;
       }
+
+      console.log(`[next] sessionId=${body.sessionId} taskId=${body.taskId} taskType=${body.taskType} → phase=${newState.phase}`);
 
       const isDone = newState.phase === "DONE";
       const taskJson = isDone ? {} : serializeStateToQualtricsTask(newState, engine.getConfig());
@@ -92,6 +120,7 @@ export async function startServer(port: number): Promise<http.Server> {
       return;
     }
 
+    console.log(`[error] ${req.method} ${url} — not found`);
     json(res, 404, { error: "Not found" });
   });
 

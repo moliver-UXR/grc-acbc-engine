@@ -58,4 +58,14 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function () {
   // TPRM active — recode: 1=yes, 2=no
   var tprmRaw = Qualtrics.SurveyEngine.getEmbeddedData('QID_tprm_recode');
   Qualtrics.SurveyEngine.setEmbeddedData('profile_tprmActive', tprmRaw === '1' ? 'yes' : 'no');
+
+  // Log the complete profile so developers can inspect all 6 fields in the browser console.
+  console.log('[profile] fields written:', {
+    profile_segment: Qualtrics.SurveyEngine.getEmbeddedData('profile_segment'),
+    profile_currentProvider: Qualtrics.SurveyEngine.getEmbeddedData('profile_currentProvider'),
+    profile_frameworks: Qualtrics.SurveyEngine.getEmbeddedData('profile_frameworks'),
+    profile_deploymentPref: Qualtrics.SurveyEngine.getEmbeddedData('profile_deploymentPref'),
+    profile_aiComfort: Qualtrics.SurveyEngine.getEmbeddedData('profile_aiComfort'),
+    profile_tprmActive: Qualtrics.SurveyEngine.getEmbeddedData('profile_tprmActive'),
+  });
 });
