@@ -83,6 +83,7 @@ export async function startServer(port: number): Promise<http.Server> {
       const taskJson = isDone ? {} : serializeStateToQualtricsTask(newState, engine.getConfig());
 
       json(res, 200, {
+        sessionId: body.sessionId,
         acbcTaskJson: JSON.stringify(taskJson),
         acbcPhase: newState.phase,
         acbcIteration: String(newState.screened.length),
