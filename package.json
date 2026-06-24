@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "tsx src/server.ts",
     "test": "vitest run",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
