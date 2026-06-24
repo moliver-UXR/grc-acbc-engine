@@ -274,6 +274,14 @@ Adaptive Conjoint Analysis (ACBC)/
 │   ├── VALIDATION.md            # Testing and validation
 │   └── SLR_SUMMARY.md           # Systematic Literature Review summary
 │
+├── survey/                      # GRC ACBC Qualtrics instrument (UX1-275)
+│   ├── grc-task-template.html  # HTML containers for 5 task types
+│   ├── grc-acbc-task.js        # OnLoad renderer + OnSubmit capture
+│   ├── profile-builder.js      # Screener answers → Embedded Data
+│   ├── embedded-data-spec.md   # All Qualtrics Embedded Data fields
+│   ├── survey-flow.md          # 9-section Survey Flow specification
+│   └── api-contract.md         # /init and /next JSON contract
+│
 └── demo/
     └── index.html               # Browser demo page
 `
@@ -707,6 +715,19 @@ npm test
 | **D-efficiency** | A measure of design matrix quality (higher = better) |
 | **Reducer** | A pure function that transforms state given an event |
 | **Event Log** | An append-only record of all events, enabling replay |
+
+---
+
+## GRC ACBC Study (UX1-275)
+
+This repo includes a complete Qualtrics instrument for the AuditBoard GRC buyer-preference ACBC study. Qualtrics acts as a dumb renderer; the engine runs as an external REST service.
+
+**Engine additions:**
+- `src/configs/grc.ts` — 8-attribute GRC config (regulatory coverage, deployment, AI autonomy, TPRM, time-to-value, integrations, annual price, pricing model)
+- `src/integration/qualtrics-adapter.ts` — serializes `EngineState` to flat `QualtricsTask` JSON and deserializes Qualtrics choices back to `EngineEvent`
+- `src/server.ts` — Node http server with `POST /init` and `POST /next`; run with `node --import tsx src/server.ts` or `PORT=3000 tsx src/server.ts`
+
+**Survey assets** (in `survey/`): paste `grc-task-template.html` into the Qualtrics question body, `grc-acbc-task.js` into its JS editor, and follow `survey-flow.md` to wire up the Survey Flow. See `api-contract.md` for the full JSON contract.
 
 ---
 

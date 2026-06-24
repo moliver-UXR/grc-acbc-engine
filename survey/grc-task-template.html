@@ -1,0 +1,53 @@
+<!-- GRC ACBC Task — base container -->
+<!-- grc-acbc-task.js replaces #acbc-task-content based on taskType -->
+<div id="acbc-task-wrapper" style="font-family: inherit; max-width: 900px; margin: 0 auto;">
+
+  <!-- Task prompt (JS replaces text) -->
+  <p id="acbc-prompt" style="font-size:1.05em; font-weight:600; margin-bottom:1.2em;"></p>
+
+  <!-- BYO: one dropdown per in_byo attribute -->
+  <div id="acbc-byo-container" style="display:none;">
+    <!-- JS renders dropdowns here -->
+  </div>
+
+  <!-- Screening: concept cards side by side -->
+  <div id="acbc-screening-container"
+       style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+    <!-- JS renders concept cards here -->
+  </div>
+
+  <!-- Confirm: rule confirmation buttons -->
+  <div id="acbc-confirm-container" style="display:none; padding:1rem;
+       background:#fff3cd; border-left:4px solid #ffc107; border-radius:6px;">
+    <p id="acbc-confirm-message"></p>
+    <label style="margin-right:1.5rem;">
+      <input type="radio" name="acbc-confirm-radio" value="confirm" /> Yes, this is correct
+    </label>
+    <label>
+      <input type="radio" name="acbc-confirm-radio" value="reject" /> No, let me reconsider
+    </label>
+  </div>
+
+  <!-- Tournament: 3-column attribute comparison table -->
+  <div id="acbc-tournament-container" style="display:none;">
+    <table id="acbc-tournament-table"
+           style="width:100%; border-collapse:collapse; margin-bottom:1rem;">
+      <!-- JS renders thead + tbody here -->
+    </table>
+    <div id="acbc-tournament-choices" style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <!-- JS renders radio buttons here -->
+    </div>
+  </div>
+
+  <!-- Calibration: winner profile + Likert -->
+  <div id="acbc-calibration-container" style="display:none;">
+    <div id="acbc-calibration-concept" style="margin-bottom:1rem;"></div>
+    <div id="acbc-calibration-scale" style="display:flex; gap:0.5rem; align-items:center;">
+      <!-- JS renders 1-5 scale here -->
+    </div>
+  </div>
+
+  <!-- Hidden fields written by JS, read by OnSubmit -->
+  <input type="hidden" id="acbc-choice-payload" value="" />
+
+</div>

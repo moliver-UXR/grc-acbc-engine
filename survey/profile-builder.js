@@ -1,0 +1,61 @@
+/* profile-builder.js
+ * Paste into OnSubmit for the last profile question (e.g., QID_ai_comfort).
+ * Reads answered profile questions and writes structured Embedded Data fields
+ * consumed by the /init Web Service call.
+ *
+ * Replace QID_XXX with actual Qualtrics question IDs.
+ * Recode values are set on each question's answer choices in Qualtrics.
+ */
+
+Qualtrics.SurveyEngine.addOnPageSubmit(function () {
+  // Segment — recode: 1=smb, 2=midmarket, 3=enterprise, 4=large_enterprise
+  var segmentMap = { '1': 'smb', '2': 'midmarket', '3': 'enterprise', '4': 'large_enterprise' };
+  var segmentRaw = Qualtrics.SurveyEngine.getEmbeddedData('QID_segment_recode');
+  Qualtrics.SurveyEngine.setEmbeddedData(
+    'profile_segment',
+    segmentMap[segmentRaw] || segmentRaw || ''
+  );
+
+  // Current provider — free text (QID_provider ChoiceTextEntryValue)
+  var provider = Qualtrics.SurveyEngine.getEmbeddedData('QID_provider_text');
+  Qualtrics.SurveyEngine.setEmbeddedData('profile_currentProvider', provider || '');
+
+  // Regulatory frameworks — multi-select recodes, pipe-delimited
+  // Set on QID_frameworks via SelectedChoicesRecode in Survey Flow
+  var frameworks = Qualtrics.SurveyEngine.getEmbeddedData('QID_frameworks_recodes') || '';
+  // Convert "SOX|ISO27001|SOC2" to JSON array string
+  var frameworkList = frameworks.split('|').filter(function (f) { return f.length > 0; });
+  Qualtrics.SurveyEngine.setEmbeddedData(
+    'profile_frameworks',
+    JSON.stringify(frameworkList)
+  );
+
+  // Deployment preference — recode: 1=shared_saas, 2=tenant_isolated, 3=cmk, 4=on_prem
+  var deployMap = {
+    '1': 'shared_saas', '2': 'tenant_isolated',
+    '3': 'cmk', '4': 'on_prem',
+  };
+  var deployRaw = Qualtrics.SurveyEngine.getEmbeddedData('QID_deployment_recode');
+  Qualtrics.SurveyEngine.setEmbeddedData(
+    'profile_deploymentPref',
+    deployMap[deployRaw] || deployRaw || ''
+  );
+
+  // AI comfort — recode maps to ai_autonomy level IDs
+  var aiMap = {
+    '1': 'zero_ai',
+    '2': 'ai_suggests',
+    '3': 'ai_executes_approved',
+    '4': 'ai_auto_spot',
+    '5': 'fully_auto',
+  };
+  var aiRaw = Qualtrics.SurveyEngine.getEmbeddedData('QID_ai_comfort_recode');
+  Qualtrics.SurveyEngine.setEmbeddedData(
+    'profile_aiComfort',
+    aiMap[aiRaw] || aiRaw || ''
+  );
+
+  // TPRM active — recode: 1=yes, 2=no
+  var tprmRaw = Qualtrics.SurveyEngine.getEmbeddedData('QID_tprm_recode');
+  Qualtrics.SurveyEngine.setEmbeddedData('profile_tprmActive', tprmRaw === '1' ? 'yes' : 'no');
+});
