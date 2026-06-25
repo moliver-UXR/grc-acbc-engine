@@ -47,6 +47,13 @@ export async function startServer(port: number): Promise<http.Server> {
     const url = req.url ?? "";
 
     // -----------------------------------------------------------------------
+    // GET /health — liveness probe for Railway / Render health checks
+    // -----------------------------------------------------------------------
+    if (req.method === "GET" && url === "/health") {
+      json(res, 200, { status: "ok" }); return;
+    }
+
+    // -----------------------------------------------------------------------
     // POST /init — create a new session, run BYO, return first task
     // -----------------------------------------------------------------------
     if (req.method === "POST" && url === "/init") {

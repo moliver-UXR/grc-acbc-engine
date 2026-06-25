@@ -33,8 +33,8 @@ export const grcConfig = {
         levels: [
           { id: "zero_ai", label: "No AI" },
           { id: "ai_suggests", label: "AI suggests, human executes" },
-          { id: "ai_executes_approved", label: "AI executes, human approves" },
-          { id: "ai_auto_spot", label: "AI autonomous, human spot-checks" },
+          { id: "ai_executes_approved", label: "AI acts, you approve before it sticks" },
+          { id: "ai_auto_spot", label: "AI runs autonomously, you review exceptions" },
           { id: "fully_auto", label: "Fully autonomous" },
         ],
       },
@@ -45,9 +45,9 @@ export const grcConfig = {
         price_type: "none" as const,
         levels: [
           { id: "not_included", label: "Not included" },
-          { id: "basic_vendor", label: "Basic vendor risk" },
+          { id: "basic_vendor", label: "Basic vendor questionnaires" },
           { id: "full_tprm", label: "Full TPRM suite" },
-          { id: "nth_party", label: "Nth-party + sBOM" },
+          { id: "nth_party", label: "Nth-party + supply chain inventory" },
         ],
       },
       {
@@ -70,8 +70,8 @@ export const grcConfig = {
         levels: [
           { id: "standalone", label: "Standalone (no connectors)" },
           { id: "few_connectors", label: "A few connectors" },
-          { id: "broad_ootb", label: "Broad OOTB integrations" },
-          { id: "open_api", label: "Native bi-directional + open API" },
+          { id: "broad_ootb", label: "50+ pre-built connectors" },
+          { id: "open_api", label: "200+ connectors + open API / MCP" },
         ],
       },
       {
