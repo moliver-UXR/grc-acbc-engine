@@ -274,13 +274,20 @@ Adaptive Conjoint Analysis (ACBC)/
 │   ├── VALIDATION.md            # Testing and validation
 │   └── SLR_SUMMARY.md           # Systematic Literature Review summary
 │
-├── survey/                      # GRC ACBC Qualtrics instrument (UX1-275)
+├── survey/                      # GRC ACBC Qualtrics instrument (UX1-275) — deployed copy
 │   ├── grc-task-template.html  # HTML containers for 5 task types
 │   ├── grc-acbc-task.js        # OnLoad renderer + OnSubmit capture
 │   ├── profile-builder.js      # Screener answers → Embedded Data
 │   ├── embedded-data-spec.md   # All Qualtrics Embedded Data fields
 │   ├── survey-flow.md          # 9-section Survey Flow specification
 │   └── api-contract.md         # /init and /next JSON contract
+│
+├── reference/
+│   └── qualtrics-fork/          # Original Qualtrics-side dev repo (moliver-UXR/conjoint-example,
+│                                 # now archived), merged in via git subtree for provenance.
+│                                 # Includes the Leeper political-conjoint template this instrument
+│                                 # forked from (leeper-original/, conjoint.qsf). survey/ above is
+│                                 # the current, deployed copy — this directory is historical only.
 │
 └── demo/
     └── index.html               # Browser demo page
