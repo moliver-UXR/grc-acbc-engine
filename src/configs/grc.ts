@@ -14,15 +14,16 @@ export const grcConfig = {
         ],
       },
       {
-        id: "deployment",
-        label: "Deployment & Data Residency",
+        id: "deployment_location",
+        label: "Deployment & Data Location",
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "shared_saas", label: "Shared SaaS" },
-          { id: "tenant_isolated", label: "Tenant-isolated cloud" },
-          { id: "cmk", label: "Customer-managed keys" },
-          { id: "on_prem", label: "On-prem / air-gapped" },
+          { id: "shared_no_guarantee", label: "Shared SaaS, no regional guarantee" },
+          { id: "shared_major_region", label: "Shared SaaS, choice of major region (US or EU)" },
+          { id: "tenant_in_region", label: "Tenant-isolated cloud, in-region hosting for your jurisdiction" },
+          { id: "cmk_in_region", label: "Customer-managed keys, in-region hosting" },
+          { id: "onprem_sovereign", label: "On-prem / air-gapped, dedicated in-country / sovereign instance" },
         ],
       },
       {
@@ -51,15 +52,15 @@ export const grcConfig = {
         ],
       },
       {
-        id: "time_to_value",
-        label: "Implementation Time-to-Value",
+        id: "connected_risk",
+        label: "Connected-Risk Data Foundation",
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "lt30", label: "Under 30 days" },
-          { id: "30_90", label: "30-90 days" },
-          { id: "90_180", label: "90-180 days" },
-          { id: "gt180", label: "180+ days" },
+          { id: "siloed", label: "Siloed modules (each area keeps its own data)" },
+          { id: "shared_inventory", label: "Shared inventory of core objects across modules" },
+          { id: "unified_core", label: "Unified data core (one system of record)" },
+          { id: "write_back", label: "Connected write-back (agents act across modules)" },
         ],
       },
       {
@@ -71,7 +72,7 @@ export const grcConfig = {
           { id: "standalone", label: "Standalone (no connectors)" },
           { id: "few_connectors", label: "A few connectors" },
           { id: "broad_ootb", label: "50+ pre-built connectors" },
-          { id: "open_api", label: "200+ connectors + open API / MCP" },
+          { id: "open_api", label: "Broad connector library + open API + MCP" },
         ],
       },
       {

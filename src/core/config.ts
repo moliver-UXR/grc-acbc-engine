@@ -32,6 +32,13 @@ const DesignParamsSchema = z.object({
   total_screening_screens: z.number().int().positive(),
   price_variation_pct: z.number().min(0).max(1),
   price_rounding: z.number().positive(),
+  prohibited_pairs: z
+    .array(
+      z
+        .array(z.object({ attributeId: z.string(), levelId: z.string() }))
+        .length(2),
+    )
+    .optional(),
 });
 
 const EstimationConfigSchema = z.object({

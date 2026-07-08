@@ -32,6 +32,12 @@ export interface DesignParams {
   total_screening_screens: number;
   price_variation_pct: number;
   price_rounding: number;
+  /**
+   * Optional list of prohibited level combinations. Each pair is two
+   * {attributeId, levelId} entries that must never co-occur in a generated
+   * concept (e.g. on-prem deployment with a cloud-region data residency level).
+   */
+  prohibited_pairs?: { attributeId: string; levelId: string }[][];
 }
 
 export interface EstimationConfig {

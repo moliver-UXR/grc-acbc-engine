@@ -23,6 +23,8 @@ export function generateNearNeighborPool(
 
     if (isConceptDuplicate(candidate, concepts)) continue;
 
+    if (violatesProhibitedPair(candidate, config)) continue;
+
     if (rules.some((rule) => {
       if (rule.kind === "mustHave") {
         return candidate.levels[rule.attributeId] !== rule.levelId;
@@ -93,5 +95,24 @@ export function isConceptDuplicate(
 ): boolean {
   return pool.some((c) =>
     Object.keys(c.levels).every((k) => c.levels[k] === candidate.levels[k]),
+  );
+}
+
+/**
+ * True if a concept contains any prohibited level combination declared in
+ * config.study.design.prohibited_pairs (e.g. on-prem deployment paired with a
+ * cloud-region data residency level). Concepts that violate a pair are skipped
+ * during pool generation so a contradictory bundle is never shown.
+ */
+export function violatesProhibitedPair(
+  candidate: Concept,
+  config: StudyConfig,
+): boolean {
+  const pairs = config.study.design.prohibited_pairs;
+  if (!pairs || pairs.length === 0) return false;
+  return pairs.some(
+    ([a, b]) =>
+      candidate.levels[a.attributeId] === a.levelId &&
+      candidate.levels[b.attributeId] === b.levelId,
   );
 }

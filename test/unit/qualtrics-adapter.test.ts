@@ -53,10 +53,10 @@ describe("buildEngineEventFromChoice", () => {
     engine.start();
     const byoChoices: Record<string, string> = {
       regulatory_framework: "multi",
-      deployment: "tenant_isolated",
+      deployment_location: "tenant_in_region",
       ai_autonomy: "ai_executes_approved",
       tprm: "full_tprm",
-      time_to_value: "30_90",
+      connected_risk: "shared_inventory",
       integrations: "broad_ootb",
     };
     engine.submitEvent({ type: "BYO_SUBMITTED", answers: byoChoices });
