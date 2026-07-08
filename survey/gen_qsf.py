@@ -19,7 +19,7 @@ Import steps after generating:
 import json, os, sys
 
 BASE = os.path.expanduser(
-    "~/Documents/Research/grc-conjoint-q3-2026/repos/qualtrics-fork"
+    "~/Documents/Research/grc-conjoint-q3-2026/repos/acbc-engine/survey"
 )
 
 def read(name):
@@ -56,6 +56,8 @@ ED_FIELDS = [
     ("profile_deploymentPref", ""),
     ("profile_aiComfort",      ""),
     ("profile_tprmActive",     ""),
+    ("profile_product_area",     ""),
+    ("profile_ttv_importance",   ""),
     # Recode pass-throughs (update expressions after import to match real QIDs)
     ("QID_segment_recode",      "${q://QIDsegment/SelectedChoicesRecode}"),
     ("QID_deployment_recode",   "${q://QIDdeployment/SelectedChoicesRecode}"),
@@ -63,6 +65,8 @@ ED_FIELDS = [
     ("QID_tprm_recode",         "${q://QIDtprm/SelectedChoicesRecode}"),
     ("QID_frameworks_recodes",  "${q://QIDframeworks/SelectedChoicesRecode}"),
     ("QID_provider_text",       "${q://QIDprovider/ChoiceTextEntryValue}"),
+    ("QID_product_area_recode",   "${q://QIDproductarea/SelectedChoicesRecode}"),
+    ("QID_ttv_importance_recode", "${q://QIDttv/SelectedChoicesRecode}"),
 ]
 
 def ed_item(field, value):
@@ -215,6 +219,8 @@ profile_elements = [
     bel("QIDdeployment"),
     bel("QIDaicomfort"),  # profile-builder.js is in this question's QuestionJS
     bel("QIDtprm"),
+    bel("QIDproductarea"),
+    bel("QIDttv"),
 ]
 
 blocks = [
@@ -340,7 +346,7 @@ def db(qid, html_text, export_tag=None):
 q_intro = db(
     "QID_intro",
     "<h2>GRC Platform Preferences Study</h2>"
-    "<p>Thank you for participating. This 15&#8211;20 minute survey explores how "
+    "<p>Thank you for participating. This 15 to 20 minute survey explores how "
     "organizations evaluate and select governance, risk, and compliance (GRC) "
     "platforms. Your responses are confidential and used only for research.</p>"
     "<p><strong>Eligibility:</strong> This survey is for professionals involved in "
@@ -368,9 +374,9 @@ q_s2 = mc(
     "How many employees does your organization have?",
     [
         ("Fewer than 100 employees (does not qualify)", None),
-        ("100–499 employees", "2"),
-        ("500–1,999 employees", "3"),
-        ("2,000–9,999 employees", "4"),
+        ("100-499 employees", "2"),
+        ("500-1,999 employees", "3"),
+        ("2,000-9,999 employees", "4"),
         ("10,000+ employees", "5"),
     ],
     export_tag="screener_size",
@@ -407,8 +413,8 @@ q_segment = mc(
     "Which best describes your organization?",
     [
         ("Small business (under 100 employees)", "1"),
-        ("Mid-market (100–999 employees)", "2"),
-        ("Enterprise (1,000–4,999 employees)", "3"),
+        ("Mid-market (100-999 employees)", "2"),
+        ("Enterprise (1,000-4,999 employees)", "3"),
         ("Large enterprise (5,000+ employees)", "4"),
     ],
     export_tag="profile_segment_raw",
@@ -473,9 +479,9 @@ q_provider = sq("QIDprovider", {
 # Profile Q4: Deployment preference
 q_deployment = mc(
     "QIDdeployment",
-    "What are your organization's data residency or deployment requirements?",
+    "What are your organization's deployment requirements?",
     [
-        ("No special requirements — shared SaaS is fine", "1"),
+        ("No special requirements (shared SaaS is fine)", "1"),
         ("Tenant-isolated cloud deployment", "2"),
         ("Customer-managed encryption keys (BYOK/CMK)", "3"),
         ("On-premises deployment required", "4"),
@@ -495,7 +501,7 @@ q_aicomfort = sq("QIDaicomfort", {
     "Configuration": {"QuestionDescriptionOption": "UseText"},
     "QuestionDescription": "AI autonomy comfort level",
     "Choices": {
-        "1": {"Display": "AI should only assist — humans approve all actions",
+        "1": {"Display": "AI should only assist; humans approve all actions",
               "RecodeValue": "1"},
         "2": {"Display": "AI can execute low-risk tasks with my oversight",
               "RecodeValue": "2"},
@@ -525,6 +531,34 @@ q_tprm = mc(
     export_tag="profile_tprm_raw",
 )
 
+# Profile Q7: Product area
+q_product_area = mc(
+    "QIDproductarea",
+    "Which product area do you primarily evaluate or use?",
+    [
+        ("Controls / SOX Testing",           "1"),
+        ("Internal Audit",                   "2"),
+        ("Third-Party Risk (TPRM)",          "3"),
+        ("Enterprise Risk",                  "4"),
+        ("Compliance",                       "5"),
+    ],
+    export_tag="profile_product_area_raw",
+)
+
+# Profile Q8: Time-to-value importance
+q_ttv_importance = mc(
+    "QIDttv",
+    "When choosing a GRC platform, how important is fast time to first value "
+    "(going live)?",
+    [
+        ("Not important",                                  "1"),
+        ("Somewhat important",                              "2"),
+        ("Important",                                       "3"),
+        ("Critical (must be live in under 90 days)",        "4"),
+    ],
+    export_tag="profile_ttv_importance_raw",
+)
+
 # ACBC Task — HTML template + full renderer JS
 q_acbc = sq("QID_acbc", {
     "QuestionText": html_template,
@@ -538,7 +572,7 @@ q_acbc = sq("QID_acbc", {
     # One placeholder choice; grc-acbc-task.js hides Qualtrics native choices and
     # renders the real UI (BYO / Screening / Confirm / Tournament / Calibration).
     "Choices": {
-        "1": {"Display": "[Task rendered by grc-acbc-task.js — do not modify]"},
+        "1": {"Display": "[Task rendered by grc-acbc-task.js: do not modify]"},
     },
     "ChoiceOrder": [1],
     "Validation": FORCE_OFF,
@@ -656,12 +690,12 @@ qsf = {
                 "AvailableLanguages": {"EN": []},
             },
         },
-        # QC — Question Count (13 questions)
+        # QC (Question Count: 15 questions)
         {
             "SurveyID": SURVEY_ID,
             "Element": "QC",
             "PrimaryAttribute": "Survey Question Count",
-            "SecondaryAttribute": "13",
+            "SecondaryAttribute": "15",
             "TertiaryAttribute": None,
             "Payload": None,
         },
@@ -677,6 +711,8 @@ qsf = {
         q_deployment,
         q_aicomfort,
         q_tprm,
+        q_product_area,
+        q_ttv_importance,
         q_acbc,
         q_co1,
         q_thanks,
@@ -697,9 +733,13 @@ print()
 print("Questions embedded:")
 print("  Screener:  QID_intro, QID_s1–s4 (4 knock-outs)")
 print("  Profile:   QIDsegment, QIDframeworks, QIDprovider, QIDdeployment,")
-print("             QIDaicomfort (profile-builder.js), QIDtprm")
+print("             QIDaicomfort (profile-builder.js), QIDtprm,")
+print("             QIDproductarea, QIDttv")
 print("  ACBC task: QID_acbc (grc-acbc-task.js + HTML template)")
 print("  Close-out: QID_co1, QID_thanks")
+print()
+print("New profile embedded-data fields: profile_product_area, profile_ttv_importance")
+print("(Qualtrics-side only, not sent in the /init request body)")
 print()
 print("Manual steps after Qualtrics import:")
 print("  1. Survey Flow > Embedded Data: set acbcEngineUrl to your deployed URL")

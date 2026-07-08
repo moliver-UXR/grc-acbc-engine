@@ -13,6 +13,11 @@ before any JS writes them (Qualtrics requirement).
 | `profile_deploymentPref` | string | QID_deployment recode | "tenant_isolated" |
 | `profile_aiComfort` | string | QID_ai_comfort recode | "ai_executes_approved" |
 | `profile_tprmActive` | string | QID_tprm recode | "yes" |
+| `profile_product_area` | string | QID_product_area recode | "internal_audit" |
+| `profile_ttv_importance` | string | QID_ttv_importance recode | "critical_under_90_days" |
+
+`profile_product_area` and `profile_ttv_importance` are Qualtrics-side profile fields only.
+They are not conjoint attributes and are not included in the engine `/init` request body.
 
 ## ACBC session fields (written by Web Service elements)
 

@@ -12,7 +12,7 @@ Qualtrics.SurveyEngine.addOnload(function () {
   if (!rawTask || rawTask === '${e://Field/acbcTaskJson}') {
     // Fallback: no task JSON available (preview / first load before init)
     document.getElementById('acbc-prompt').textContent =
-      'Loading your survey — please wait...';
+      'Loading your survey, please wait...';
     return;
   }
 
@@ -167,7 +167,7 @@ function renderTournament(task) {
       ? 'color:#999; font-style:italic;'
       : '';
     var cells = concepts.map(function (c) {
-      var level = (c.attributes.filter(function (a) { return a.id === attr.id; })[0] || {}).level || '—';
+      var level = (c.attributes.filter(function (a) { return a.id === attr.id; })[0] || {}).level || 'n/a';
       return '<td style="padding:0.6rem 1rem; border-bottom:1px solid #eee; ' +
         rowStyle + '">' + esc(level) + '</td>';
     }).join('');
@@ -202,7 +202,7 @@ function renderTournament(task) {
     '<label style="cursor:pointer; padding:0.6rem 1.2rem; border:2px solid #ddd; ' +
            'border-radius:6px; display:flex; align-items:center; gap:0.5rem;">' +
       '<input type="radio" name="acbc-tournament-radio" value="none" />' +
-      'None of these' +
+      'None of these. We would keep our current approach, build it in-house, or use custom GPTs instead.' +
     '</label>';
   document.getElementById('acbc-tournament-choices').innerHTML = radios + noneRadio;
 }
@@ -231,9 +231,9 @@ function renderCalibration(task) {
       '</div>';
   }
   var scaleLabels = [
-    '1 — Definitely would not purchase',
+    '1: Definitely would not purchase',
     '2', '3', '4',
-    '5 — Definitely would purchase',
+    '5: Definitely would purchase',
   ];
   var radios = scaleLabels.map(function (label, i) {
     return (
