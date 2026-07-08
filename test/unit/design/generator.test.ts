@@ -6,6 +6,8 @@ import {
 } from "../../../src/design/generator.js";
 import { Concept, CutoffRule, StudyConfig } from "../../../src/core/types.js";
 import { SeededRNG } from "../../../src/core/prng.js";
+import { grcConfig } from "../../../src/configs/grc.js";
+import { parseConfig } from "../../../src/core/config.js";
 
 function makeRNG(seed = "test-seed"): SeededRNG {
   return new SeededRNG(seed);
@@ -381,5 +383,35 @@ describe("generateNearNeighborPool", () => {
     const original = JSON.parse(JSON.stringify(c0));
     generateNearNeighborPool(c0, [], baseConfig, makeRNG());
     expect(c0).toEqual(original);
+  });
+});
+
+describe("vary_in_screening attributes (grcConfig price + pricing model)", () => {
+  const config = parseConfig(grcConfig);
+
+  const grcC0: Concept = {
+    id: "byo-concept",
+    levels: Object.fromEntries(
+      config.study.attributes
+        .filter((a) => a.in_byo)
+        .map((a) => [a.id, a.levels[0].id]),
+    ),
+    source: "BYO",
+  };
+
+  it("assigns annual_price and pricing_model levels even though they are not in_byo", () => {
+    const pool = generateNearNeighborPool(grcC0, [], config, new SeededRNG("vary-price"));
+    pool.forEach((c) => {
+      expect(c.levels["annual_price"]).toBeDefined();
+      expect(c.levels["pricing_model"]).toBeDefined();
+    });
+  });
+
+  it("varies annual_price and pricing_model across the generated pool", () => {
+    const pool = generateNearNeighborPool(grcC0, [], config, new SeededRNG("vary-price-2"));
+    const priceLevels = new Set(pool.map((c) => c.levels["annual_price"]));
+    const pricingModelLevels = new Set(pool.map((c) => c.levels["pricing_model"]));
+    expect(priceLevels.size).toBeGreaterThan(1);
+    expect(pricingModelLevels.size).toBeGreaterThan(1);
   });
 });

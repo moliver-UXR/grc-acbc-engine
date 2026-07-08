@@ -80,11 +80,12 @@ export const grcConfig = {
         label: "Annual Platform Price",
         in_byo: false,
         price_type: "none" as const,
+        vary_in_screening: true,
         levels: [
-          { id: "p30_60k", label: "$30K-$60K/yr" },
-          { id: "p61_150k", label: "$61K-$150K/yr" },
-          { id: "p151_250k", label: "$151K-$250K/yr" },
-          { id: "p251k_plus", label: "$251K+/yr" },
+          { id: "below_market", label: "Well below market for an organization your size" },
+          { id: "at_market", label: "At market (typical list price for your size)" },
+          { id: "above_market", label: "Above market for your size" },
+          { id: "premium", label: "Premium, top of range for your size" },
         ],
       },
       {
@@ -92,6 +93,7 @@ export const grcConfig = {
         label: "Pricing Structure",
         in_byo: false,
         price_type: "none" as const,
+        vary_in_screening: true,
         levels: [
           { id: "flat_annual", label: "Flat annual subscription" },
           { id: "per_seat", label: "Per-seat" },

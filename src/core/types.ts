@@ -22,6 +22,12 @@ export interface Attribute {
   levels: Level[];
   in_byo: boolean;
   price_type: "none" | "component" | "summed";
+  /**
+   * When true on a non-BYO attribute, the attribute is still varied across
+   * the screening/tournament concept pool (each concept gets a level chosen
+   * at random) even though it never appears in the BYO warm-up task.
+   */
+  vary_in_screening?: boolean;
 }
 
 export interface DesignParams {

@@ -22,6 +22,7 @@ const AttributeSchema = z.object({
   levels: z.array(LevelSchema).min(1),
   in_byo: z.boolean(),
   price_type: z.enum(["none", "component", "summed"]),
+  vary_in_screening: z.boolean().optional(),
 });
 
 const DesignParamsSchema = z.object({

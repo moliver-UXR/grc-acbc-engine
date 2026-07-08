@@ -86,6 +86,17 @@ export function nearNeighborConcept(
     candidate.levels[attr.id] = selected;
   }
 
+  // Non-BYO attributes flagged vary_in_screening (e.g. price, pricing model)
+  // never appear in the BYO warm-up, so they are not part of attrsToVary
+  // above. Give each one an independently randomized level here so it still
+  // varies across the screening/tournament concept pool.
+  const varyOnlyAttrs = config.study.attributes.filter(
+    (a) => !a.in_byo && a.vary_in_screening === true,
+  );
+  for (const attr of varyOnlyAttrs) {
+    candidate.levels[attr.id] = rng.pick(attr.levels).id;
+  }
+
   return candidate;
 }
 
