@@ -730,7 +730,7 @@ npm test
 This repo includes a complete Qualtrics instrument for the AuditBoard GRC buyer-preference ACBC study. Qualtrics acts as a dumb renderer; the engine runs as an external REST service.
 
 **Engine additions:**
-- `src/configs/grc.ts` — 8-attribute GRC config (regulatory coverage, deployment, AI autonomy, TPRM, time-to-value, integrations, annual price, pricing model)
+- `src/configs/grc.ts`: 8-attribute GRC config (regulatory framework, deployment & data location [5 levels], AI autonomy [5 levels], TPRM, connected risk, integrations, annual price, pricing model)
 - `src/integration/qualtrics-adapter.ts` — serializes `EngineState` to flat `QualtricsTask` JSON and deserializes Qualtrics choices back to `EngineEvent`
 - `src/server.ts` — Node http server with `POST /init` and `POST /next`; run with `node --import tsx src/server.ts` or `PORT=3000 tsx src/server.ts`
 
@@ -772,14 +772,14 @@ curl -s -X POST http://localhost:3000/next \
     "taskId": "byo-0",
     "taskType": "byo",
     "choice": {
-      "regulatory_coverage": "full_suite",
-      "deployment": "tenant_isolated",
+      "regulatory_framework": "multi",
+      "deployment_location": "tenant_in_region",
       "ai_autonomy": "ai_suggests",
-      "tprm": "advanced",
-      "time_to_value": "90_days",
-      "integrations": "broad",
-      "annual_price": "tier_2",
-      "pricing_model": "per_user"
+      "tprm": "full_tprm",
+      "connected_risk": "unified_core",
+      "integrations": "broad_ootb",
+      "annual_price": "p61_150k",
+      "pricing_model": "per_seat"
     }
   }' | jq .
 ```
