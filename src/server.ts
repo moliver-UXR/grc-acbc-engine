@@ -1,4 +1,6 @@
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { ACBCEngine, MemoryStorage } from "./index.js";
 import { grcConfig } from "./configs/grc.js";
@@ -19,7 +21,7 @@ const sessions = new Map<string, ACBCEngine>();
 // ---------------------------------------------------------------------------
 function cors(res: http.ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
@@ -51,6 +53,28 @@ export async function startServer(port: number): Promise<http.Server> {
     // -----------------------------------------------------------------------
     if (req.method === "GET" && url === "/health") {
       json(res, 200, { status: "ok" }); return;
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /survey-js — serve the current Qualtrics survey JavaScript from disk.
+    // Lets the launch-engine tooling fetch the live source over the tunnel and
+    // set it into the survey question, so an edit needs no manual paste. The
+    // path is server config (SURVEY_JS_PATH), not request input, so there is no
+    // traversal surface. Defaults to the sibling survey-integration file.
+    // -----------------------------------------------------------------------
+    if (req.method === "GET" && url.split("?")[0] === "/survey-js") {
+      const jsPath = process.env.SURVEY_JS_PATH
+        ?? path.resolve(process.cwd(), "../../survey-integration/grc-acbc-selftest.js");
+      let js: string;
+      try { js = fs.readFileSync(jsPath, "utf8"); }
+      catch (e) {
+        console.log(`[error] /survey-js — read failed for ${jsPath}: ${String(e)}`);
+        json(res, 500, { error: `survey-js read failed: ${String(e)}` }); return;
+      }
+      cors(res);
+      res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+      res.end(js);
+      return;
     }
 
     // -----------------------------------------------------------------------
