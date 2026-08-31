@@ -74,22 +74,7 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function () {
     productAreaMap[productAreaRaw] || productAreaRaw || ''
   );
 
-  // Time-to-value importance, recode: 1=not_important, 2=somewhat_important,
-  // 3=important, 4=critical_under_90_days
-  // Qualtrics-side profile field only; not sent to the engine /init request.
-  var ttvImportanceMap = {
-    '1': 'not_important',
-    '2': 'somewhat_important',
-    '3': 'important',
-    '4': 'critical_under_90_days',
-  };
-  var ttvImportanceRaw = Qualtrics.SurveyEngine.getEmbeddedData('QID_ttv_importance_recode');
-  Qualtrics.SurveyEngine.setEmbeddedData(
-    'profile_ttv_importance',
-    ttvImportanceMap[ttvImportanceRaw] || ttvImportanceRaw || ''
-  );
-
-  // Log the complete profile so developers can inspect all 8 fields in the browser console.
+  // Log the complete profile so developers can inspect the fields in the browser console.
   console.log('[profile] fields written:', {
     profile_segment: Qualtrics.SurveyEngine.getEmbeddedData('profile_segment'),
     profile_currentProvider: Qualtrics.SurveyEngine.getEmbeddedData('profile_currentProvider'),
@@ -98,6 +83,5 @@ Qualtrics.SurveyEngine.addOnPageSubmit(function () {
     profile_aiComfort: Qualtrics.SurveyEngine.getEmbeddedData('profile_aiComfort'),
     profile_tprmActive: Qualtrics.SurveyEngine.getEmbeddedData('profile_tprmActive'),
     profile_product_area: Qualtrics.SurveyEngine.getEmbeddedData('profile_product_area'),
-    profile_ttv_importance: Qualtrics.SurveyEngine.getEmbeddedData('profile_ttv_importance'),
   });
 });

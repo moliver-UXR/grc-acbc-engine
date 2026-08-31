@@ -57,7 +57,6 @@ ED_FIELDS = [
     ("profile_aiComfort",      ""),
     ("profile_tprmActive",     ""),
     ("profile_product_area",     ""),
-    ("profile_ttv_importance",   ""),
     # Recode pass-throughs (update expressions after import to match real QIDs)
     ("QID_segment_recode",      "${q://QIDsegment/SelectedChoicesRecode}"),
     ("QID_deployment_recode",   "${q://QIDdeployment/SelectedChoicesRecode}"),
@@ -66,7 +65,6 @@ ED_FIELDS = [
     ("QID_frameworks_recodes",  "${q://QIDframeworks/SelectedChoicesRecode}"),
     ("QID_provider_text",       "${q://QIDprovider/ChoiceTextEntryValue}"),
     ("QID_product_area_recode",   "${q://QIDproductarea/SelectedChoicesRecode}"),
-    ("QID_ttv_importance_recode", "${q://QIDttv/SelectedChoicesRecode}"),
 ]
 
 def ed_item(field, value):
@@ -206,7 +204,7 @@ def bel(qid, skip_logic=None):
 
 consent_elements = [
     bel("QID_intro"),
-    bel("QID_s1", skip_to_end("QID_s1", 5, "Role: Other — does not qualify")),
+    bel("QID_s1", skip_to_end("QID_s1", 7, "Role: Other — does not qualify")),
     bel("QID_s2", skip_to_end("QID_s2", 1, "Fewer than 100 employees — does not qualify")),
     bel("QID_s3", skip_to_end("QID_s3", 2, "No GRC platform in use — does not qualify")),
     bel("QID_s4", skip_to_end("QID_s4", 4, "Minimal involvement — does not qualify")),
@@ -220,7 +218,11 @@ profile_elements = [
     bel("QIDaicomfort"),  # profile-builder.js is in this question's QuestionJS
     bel("QIDtprm"),
     bel("QIDproductarea"),
-    bel("QIDttv"),
+    bel("QIDbudgetholder"),
+    bel("QIDbudgetstructure"),
+    bel("QIDdora"),
+    bel("QIDmodules"),
+    bel("QIDorgplacement"),
 ]
 
 blocks = [
@@ -268,7 +270,7 @@ blocks = [
         "SubType": "",
         "Description": "Close-out",
         "ID": "BL_closeout",
-        "BlockElements": [bel("QID_co1"), bel("QID_thanks")],
+        "BlockElements": [bel("QIDbcmpriority"), bel("QID_co1"), bel("QID_thanks")],
         "Options": {
             "BlockLocking": "false",
             "RandomizeQuestions": "false",
@@ -345,24 +347,29 @@ def db(qid, html_text, export_tag=None):
 # Screener: Intro text
 q_intro = db(
     "QID_intro",
-    "<h2>GRC Platform Preferences Study</h2>"
+    "<h2>Connected Risk Platform Preferences Study</h2>"
     "<p>Thank you for participating. This 15 to 20 minute survey explores how "
-    "organizations evaluate and select governance, risk, and compliance (GRC) "
-    "platforms. Your responses are confidential and used only for research.</p>"
+    "organizations evaluate and select platforms for managing third-party risk, "
+    "cyber risk, and related governance. Your responses are confidential and used "
+    "only for research.</p>"
     "<p><strong>Eligibility:</strong> This survey is for professionals involved in "
-    "evaluating, selecting, or using GRC software at organizations with 100+ employees.</p>",
+    "evaluating, selecting, or using third-party risk or cyber risk software at "
+    "organizations with 100+ employees.</p>",
     export_tag="intro",
 )
 
-# Screener Q1: Role
+# Screener Q1: Role (cyber buying center). Knockout on "Other" (last choice).
+# NOTE: if you reorder these, update the skip_to_end index for QID_s1 below.
 q_s1 = mc(
     "QID_s1",
     "Which of the following best describes your primary role?",
     [
-        ("Head of GRC, Compliance, or Risk Management", "1"),
-        ("IT, Security, or Technology Leadership", "2"),
-        ("Finance, Audit, or Internal Controls Leadership", "3"),
-        ("Operations or Business Process Leadership", "4"),
+        ("Third-party or vendor risk (TPRM), incl. Head of Third-Party Risk", "1"),
+        ("Cyber or information security risk (CISO, security engineer, risk officer)", "2"),
+        ("Enterprise or operational risk (ERM, ORM, Chief Risk Officer)", "3"),
+        ("GRC or compliance program owner", "4"),
+        ("Procurement or vendor management", "5"),
+        ("Finance or budget owner", "6"),
         ("Other (does not qualify)", None),
     ],
     export_tag="screener_role",
@@ -385,11 +392,11 @@ q_s2 = mc(
 # Screener Q3: Uses GRC platform
 q_s3 = mc(
     "QID_s3",
-    "Does your organization currently use a dedicated GRC or compliance management platform?",
+    "Does your organization currently use a dedicated third-party risk or cyber risk platform?",
     [
-        ("Yes, we have a dedicated GRC/compliance platform", "1"),
+        ("Yes, we have a dedicated third-party risk or cyber risk platform", "1"),
         ("No, we use spreadsheets or general-purpose tools (does not qualify)", None),
-        ("We are currently evaluating GRC platforms", "3"),
+        ("We are currently evaluating platforms", "3"),
     ],
     export_tag="screener_grc",
 )
@@ -422,7 +429,7 @@ q_segment = mc(
 
 # Profile Q2: Frameworks (multi-select)
 q_frameworks = sq("QIDframeworks", {
-    "QuestionText": "Which regulatory frameworks apply to your organization? "
+    "QuestionText": "Which frameworks apply to your organization? "
                     "<em>Select all that apply.</em>",
     "DefaultChoices": False,
     "DataExportTag": "profile_frameworks_raw",
@@ -430,18 +437,19 @@ q_frameworks = sq("QIDframeworks", {
     "Selector": "MAVR",
     "SubSelector": "TX",
     "Configuration": {"QuestionDescriptionOption": "UseText"},
-    "QuestionDescription": "Which regulatory frameworks apply to your organization?",
+    "QuestionDescription": "Which frameworks apply to your organization?",
     "Choices": {
-        "1": {"Display": "SOX (Sarbanes-Oxley)",                       "RecodeValue": "SOX"},
+        "1": {"Display": "SOC 2",                                       "RecodeValue": "SOC2"},
         "2": {"Display": "ISO 27001",                                   "RecodeValue": "ISO27001"},
-        "3": {"Display": "SOC 2 Type II",                               "RecodeValue": "SOC2"},
-        "4": {"Display": "GDPR",                                        "RecodeValue": "GDPR"},
-        "5": {"Display": "DORA (EU Digital Operational Resilience Act)","RecodeValue": "DORA"},
-        "6": {"Display": "EU AI Act",                                   "RecodeValue": "EU_AI_Act"},
-        "7": {"Display": "HIPAA",                                       "RecodeValue": "HIPAA"},
-        "8": {"Display": "Other",                                       "RecodeValue": "Other"},
+        "3": {"Display": "NIST CSF",                                    "RecodeValue": "NIST_CSF"},
+        "4": {"Display": "CIS Controls",                                "RecodeValue": "CIS"},
+        "5": {"Display": "GDPR",                                        "RecodeValue": "GDPR"},
+        "6": {"Display": "DORA (EU Digital Operational Resilience Act)","RecodeValue": "DORA"},
+        "7": {"Display": "EU AI Act",                                   "RecodeValue": "EU_AI_Act"},
+        "8": {"Display": "ISO 42001 (AI management)",                   "RecodeValue": "ISO42001"},
+        "9": {"Display": "Other",                                       "RecodeValue": "Other"},
     },
-    "ChoiceOrder": [1, 2, 3, 4, 5, 6, 7, 8],
+    "ChoiceOrder": [1, 2, 3, 4, 5, 6, 7, 8, 9],
     "Validation": FORCE_OFF,
     "GradingData": [],
     "Language": [],
@@ -449,28 +457,33 @@ q_frameworks = sq("QIDframeworks", {
 
 # Profile Q3: Current provider (MC + text entry for Other)
 q_provider = sq("QIDprovider", {
-    "QuestionText": "Which GRC solution does your organization primarily use today?",
+    "QuestionText": "Which third-party risk or cyber risk solution does your organization primarily use today?",
     "DefaultChoices": False,
     "DataExportTag": "profile_provider_raw",
     "QuestionType": "MC",
     "Selector": "SAVR",
     "SubSelector": "TX",
     "Configuration": {"QuestionDescriptionOption": "UseText"},
-    "QuestionDescription": "Which GRC solution does your organization primarily use today?",
+    "QuestionDescription": "Which third-party risk or cyber risk solution does your organization primarily use today?",
     "Choices": {
-        "1":  {"Display": "ServiceNow GRC"},
-        "2":  {"Display": "MetricStream"},
-        "3":  {"Display": "LogicGate"},
-        "4":  {"Display": "Workiva"},
-        "5":  {"Display": "Vanta"},
-        "6":  {"Display": "Drata"},
-        "7":  {"Display": "Hyperproof"},
-        "8":  {"Display": "IBM OpenPages / Archer"},
-        "9":  {"Display": "Optro (AuditBoard)"},
-        "10": {"Display": "Other (please specify)",
+        "1":  {"Display": "LogicGate"},
+        "2":  {"Display": "Safe Security"},
+        "3":  {"Display": "Vanta"},
+        "4":  {"Display": "Drata"},
+        "5":  {"Display": "OneTrust"},
+        "6":  {"Display": "ServiceNow"},
+        "7":  {"Display": "BitSight"},
+        "8":  {"Display": "Black Kite"},
+        "9":  {"Display": "Archer"},
+        "10": {"Display": "IBM OpenPages"},
+        "11": {"Display": "Credo AI"},
+        "12": {"Display": "Certa"},
+        "13": {"Display": "Workiva"},
+        "14": {"Display": "Optro (AuditBoard)"},
+        "15": {"Display": "Other (please specify)",
                "TextEntry": "true", "TextEntrySize": "Single"},
     },
-    "ChoiceOrder": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "ChoiceOrder": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     "Validation": FORCE_OFF,
     "GradingData": [],
     "Language": [],
@@ -491,8 +504,8 @@ q_deployment = mc(
 
 # Profile Q5: AI comfort — profile-builder.js runs OnPageSubmit here
 q_aicomfort = sq("QIDaicomfort", {
-    "QuestionText": "How comfortable is your organization with AI making compliance "
-                    "decisions autonomously?",
+    "QuestionText": "How comfortable is your organization with AI acting autonomously "
+                    "across risk and vendor workflows?",
     "DefaultChoices": False,
     "DataExportTag": "profile_aicomfort_raw",
     "QuestionType": "MC",
@@ -505,11 +518,11 @@ q_aicomfort = sq("QIDaicomfort", {
               "RecodeValue": "1"},
         "2": {"Display": "AI can execute low-risk tasks with my oversight",
               "RecodeValue": "2"},
-        "3": {"Display": "AI can handle routine compliance tasks; I review exceptions",
+        "3": {"Display": "AI can handle routine tasks; I review exceptions",
               "RecodeValue": "3"},
         "4": {"Display": "AI should take significant action; I review outcomes",
               "RecodeValue": "4"},
-        "5": {"Display": "AI should operate autonomously across all compliance areas",
+        "5": {"Display": "AI should operate autonomously across all areas",
               "RecodeValue": "5"},
     },
     "ChoiceOrder": [1, 2, 3, 4, 5],
@@ -534,29 +547,97 @@ q_tprm = mc(
 # Profile Q7: Product area
 q_product_area = mc(
     "QIDproductarea",
-    "Which product area do you primarily evaluate or use?",
+    "Which module do you primarily evaluate or use?",
     [
-        ("Controls / SOX Testing",           "1"),
-        ("Internal Audit",                   "2"),
-        ("Third-Party Risk (TPRM)",          "3"),
-        ("Enterprise Risk",                  "4"),
-        ("Compliance",                       "5"),
+        ("Third-Party Risk (TPRM)",          "1"),
+        ("Cyber Risk Management",            "2"),
+        ("AI Governance",                    "3"),
+        ("Compliance / Controls",            "4"),
+        ("More than one equally",            "5"),
     ],
     export_tag="profile_product_area_raw",
 )
 
-# Profile Q8: Time-to-value importance
-q_ttv_importance = mc(
-    "QIDttv",
-    "When choosing a GRC platform, how important is fast time to first value "
-    "(going live)?",
+# Profile Q8: Budget holder (economic-buyer read, RQ 6)
+q_budget_holder = mc(
+    "QIDbudgetholder",
+    "Who controls the budget for this purchase?",
     [
-        ("Not important",                                  "1"),
-        ("Somewhat important",                              "2"),
-        ("Important",                                       "3"),
-        ("Critical (must be live in under 90 days)",        "4"),
+        ("I do",                                    "1"),
+        ("A security or risk leader (CISO, CRO)",   "2"),
+        ("Procurement",                             "3"),
+        ("Finance or CFO",                          "4"),
+        ("Split across multiple teams",             "5"),
+        ("Do not know",                             "6"),
     ],
-    export_tag="profile_ttv_importance_raw",
+    export_tag="profile_budget_holder_raw",
+)
+
+# Profile Q10: Budget structure (the combine-vs-separate crux, RQ 6)
+q_budget_structure = mc(
+    "QIDbudgetstructure",
+    "If your organization bought third-party risk and cyber risk capabilities, "
+    "would they be funded from:",
+    [
+        ("One combined budget",       "1"),
+        ("Two separate team budgets", "2"),
+        ("Do not know",               "3"),
+    ],
+    export_tag="profile_budget_structure_raw",
+)
+
+# Profile Q11: Operational-resilience pressure (RQ 5; graded, de-anchored from DORA-only)
+q_dora = mc(
+    "QIDdora",
+    "How much pressure is your organization under to prove operational resilience "
+    "(keeping critical operations running through disruptions, outages, or cyber incidents)? "
+    "This can come from regulation (for example DORA, US interagency Sound Practices, "
+    "UK PRA/FCA, APRA CPS 230), from standards or customer requirements (for example "
+    "ISO 22301), or from internal board and business-continuity mandates.",
+    [
+        ("Significant pressure, actively driving investment", "1"),
+        ("Some pressure, on our radar",                       "2"),
+        ("Little or none",                                    "3"),
+        ("Do not know",                                       "4"),
+    ],
+    export_tag="profile_resilience_pressure_raw",
+)
+
+# Profile Q12: Modules owned today (buyer-type cells; multi-select)
+q_modules = sq("QIDmodules", {
+    "QuestionText": "Which of these does your organization run today? "
+                    "<em>Select all that apply.</em>",
+    "DefaultChoices": False,
+    "DataExportTag": "profile_modules_raw",
+    "QuestionType": "MC",
+    "Selector": "MAVR",
+    "SubSelector": "TX",
+    "Configuration": {"QuestionDescriptionOption": "UseText"},
+    "QuestionDescription": "Which modules does your organization run today?",
+    "Choices": {
+        "1": {"Display": "Third-party risk (TPRM)", "RecodeValue": "tprm"},
+        "2": {"Display": "Cyber risk management",   "RecodeValue": "cyber"},
+        "3": {"Display": "AI governance",           "RecodeValue": "ai_gov"},
+        "4": {"Display": "None yet",                "RecodeValue": "none"},
+    },
+    "ChoiceOrder": [1, 2, 3, 4],
+    "Validation": FORCE_OFF,
+    "GradingData": [],
+    "Language": [],
+})
+
+# Profile Q13: Org placement (silo structure)
+q_org_placement = mc(
+    "QIDorgplacement",
+    "Where do your third-party-risk and cyber-risk functions report?",
+    [
+        ("Information security", "1"),
+        ("Enterprise risk",      "2"),
+        ("Compliance",           "3"),
+        ("IT",                   "4"),
+        ("Other or mixed",       "5"),
+    ],
+    export_tag="profile_org_placement_raw",
 )
 
 # ACBC Task — HTML template + full renderer JS
@@ -580,6 +661,21 @@ q_acbc = sq("QID_acbc", {
     "Language": [],
     "QuestionJS": acbc_js,      # full grc-acbc-task.js renderer
 })
+
+# Close-out Q0: Business continuity priority (post-choice; recovers BIA/plans/exercises
+# granularity without adding conjoint levels). Cross-tab against BCM attribute choices.
+q_bcm_priority = mc(
+    "QIDbcmpriority",
+    "Thinking specifically about business continuity, which ONE capability would "
+    "deliver the most value to your organization?",
+    [
+        ("Business impact analysis (identifying critical processes and what downtime would cost)", "1"),
+        ("Continuity plan management (building and maintaining recovery plans)",                    "2"),
+        ("Recovery testing and exercises (running drills to prove the plans actually work)",        "3"),
+        ("Not sure, or none of these is a priority for us",                                         "4"),
+    ],
+    export_tag="profile_bcm_priority_raw",
+)
 
 # Close-out Q1: Industry firmographic
 q_co1 = mc(
@@ -712,8 +808,13 @@ qsf = {
         q_aicomfort,
         q_tprm,
         q_product_area,
-        q_ttv_importance,
+        q_budget_holder,
+        q_budget_structure,
+        q_dora,
+        q_modules,
+        q_org_placement,
         q_acbc,
+        q_bcm_priority,
         q_co1,
         q_thanks,
     ],
@@ -731,14 +832,15 @@ print("Written: {}".format(out_path))
 print("Size:    {:.1f} KB".format(size_kb))
 print()
 print("Questions embedded:")
-print("  Screener:  QID_intro, QID_s1–s4 (4 knock-outs)")
+print("  Screener:  QID_intro, QID_s1–s4 (4 knock-outs; role is the cyber buying center)")
 print("  Profile:   QIDsegment, QIDframeworks, QIDprovider, QIDdeployment,")
-print("             QIDaicomfort (profile-builder.js), QIDtprm,")
-print("             QIDproductarea, QIDttv")
+print("             QIDaicomfort (profile-builder.js), QIDtprm, QIDproductarea,")
+print("             QIDbudgetholder, QIDbudgetstructure, QIDdora, QIDmodules, QIDorgplacement")
 print("  ACBC task: QID_acbc (grc-acbc-task.js + HTML template)")
 print("  Close-out: QID_co1, QID_thanks")
 print()
-print("New profile embedded-data fields: profile_product_area, profile_ttv_importance")
+print("New profile embedded-data fields: profile_product_area, profile_budget_holder,")
+print("  profile_budget_structure, profile_dora, profile_modules, profile_org_placement")
 print("(Qualtrics-side only, not sent in the /init request body)")
 print()
 print("Manual steps after Qualtrics import:")

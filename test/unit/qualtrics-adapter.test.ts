@@ -30,7 +30,7 @@ describe("serializeStateToQualtricsTask", () => {
   it("BYO phase returns taskType=byo with attributes list", () => {
     const task = serializeStateToQualtricsTask(engine.getState(), engine.getConfig());
     expect(task.taskType).toBe("byo");
-    expect(task.attributes).toHaveLength(6); // in_byo=true attributes only
+    expect(task.attributes).toHaveLength(8); // in_byo=true attributes only
     expect(task.phase).toBe("BYO");
     expect(task.done).toBe(false);
   });
@@ -51,14 +51,13 @@ describe("buildEngineEventFromChoice", () => {
   it("screening choice builds SCREEN_SUBMITTED event", () => {
     const engine = new ACBCEngine("grc-test", "r-002", grcConfig, "seed-screen", new MemoryStorage());
     engine.start();
-    const byoChoices: Record<string, string> = {
-      regulatory_framework: "multi",
-      deployment_location: "tenant_in_region",
-      ai_autonomy: "ai_executes_approved",
-      tprm: "full_tprm",
-      connected_risk: "shared_inventory",
-      integrations: "broad_ootb",
-    };
+    // Build the BYO answer map from the config so the test stays valid as the
+    // attribute set changes: pick the first level of every BYO attribute.
+    const byoTask = serializeStateToQualtricsTask(engine.getState(), engine.getConfig());
+    const byoChoices: Record<string, string> = {};
+    for (const attr of byoTask.attributes!) {
+      byoChoices[attr.id] = attr.levels[0].id;
+    }
     engine.submitEvent({ type: "BYO_SUBMITTED", answers: byoChoices });
     expect(engine.getState().phase).toBe("SCREENING");
 

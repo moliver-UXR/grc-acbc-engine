@@ -6,7 +6,6 @@ import {
 } from "../../../src/design/generator.js";
 import { Concept, CutoffRule, StudyConfig } from "../../../src/core/types.js";
 import { SeededRNG } from "../../../src/core/prng.js";
-import { grcConfig } from "../../../src/configs/grc.js";
 import { parseConfig } from "../../../src/core/config.js";
 
 function makeRNG(seed = "test-seed"): SeededRNG {
@@ -386,10 +385,58 @@ describe("generateNearNeighborPool", () => {
   });
 });
 
-describe("vary_in_screening attributes (grcConfig price + pricing model)", () => {
-  const config = parseConfig(grcConfig);
+describe("vary_in_screening attributes (non-BYO, synthetic config)", () => {
+  // The Cyber GRC grcConfig is all-BYO with no price attribute, so it no longer
+  // exercises the vary_in_screening path. Cover that mechanism with a
+  // self-contained config carrying one non-BYO, vary_in_screening attribute.
+  const config = parseConfig({
+    study: {
+      attributes: [
+        {
+          id: "core",
+          label: "Core",
+          in_byo: true,
+          price_type: "none",
+          levels: [
+            { id: "a", label: "A" },
+            { id: "b", label: "B" },
+          ],
+        },
+        {
+          id: "addon",
+          label: "Add-on",
+          in_byo: false,
+          price_type: "none",
+          vary_in_screening: true,
+          levels: [
+            { id: "x", label: "X" },
+            { id: "y", label: "Y" },
+            { id: "z", label: "Z" },
+          ],
+        },
+      ],
+      design: {
+        T: 16,
+        Amin: 1,
+        Amax: 2,
+        screens_per_concept_batch: 4,
+        total_screening_screens: 4,
+        price_variation_pct: 0,
+        price_rounding: 1,
+      },
+      phases: {
+        byo: true,
+        screening: true,
+        must_have: true,
+        unacceptable: true,
+        tournament: true,
+        calibration: true,
+      },
+      estimation: { method: "mnl", price_function: "linear" },
+    },
+  });
 
-  const grcC0: Concept = {
+  const c0: Concept = {
     id: "byo-concept",
     levels: Object.fromEntries(
       config.study.attributes
@@ -399,19 +446,16 @@ describe("vary_in_screening attributes (grcConfig price + pricing model)", () =>
     source: "BYO",
   };
 
-  it("assigns annual_price and pricing_model levels even though they are not in_byo", () => {
-    const pool = generateNearNeighborPool(grcC0, [], config, new SeededRNG("vary-price"));
+  it("assigns a non-BYO vary_in_screening attribute even though it is not in_byo", () => {
+    const pool = generateNearNeighborPool(c0, [], config, new SeededRNG("vary-addon"));
     pool.forEach((c) => {
-      expect(c.levels["annual_price"]).toBeDefined();
-      expect(c.levels["pricing_model"]).toBeDefined();
+      expect(c.levels["addon"]).toBeDefined();
     });
   });
 
-  it("varies annual_price and pricing_model across the generated pool", () => {
-    const pool = generateNearNeighborPool(grcC0, [], config, new SeededRNG("vary-price-2"));
-    const priceLevels = new Set(pool.map((c) => c.levels["annual_price"]));
-    const pricingModelLevels = new Set(pool.map((c) => c.levels["pricing_model"]));
-    expect(priceLevels.size).toBeGreaterThan(1);
-    expect(pricingModelLevels.size).toBeGreaterThan(1);
+  it("varies the non-BYO attribute across the generated pool", () => {
+    const pool = generateNearNeighborPool(c0, [], config, new SeededRNG("vary-addon-2"));
+    const addonLevels = new Set(pool.map((c) => c.levels["addon"]));
+    expect(addonLevels.size).toBeGreaterThan(1);
   });
 });
