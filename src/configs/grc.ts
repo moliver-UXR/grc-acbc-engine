@@ -14,14 +14,14 @@ export const grcConfig = {
     attributes: [
       {
         id: "connected_risk",
-        label: "Connected risk (TPRM and Cyber Risk)",
+        label: "Connected risk (TPRM, Cyber Risk, and Compliance)",
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "siloed", label: "Siloed (each team's data separate, records created twice)" },
-          { id: "shared_assessments", label: "Shared assessments and issues across teams" },
-          { id: "unified_vendor", label: "Unified vendor object (every risk type on a vendor: cyber, financial, regulatory, and reputational, rolls up to one vendor record)" },
-          { id: "impact_network", label: "Connected impact network (vendors, risks, controls, and assets on one model, so a vendor issue and a cyber finding flow to the same business-unit view)" },
+          { id: "siloed", label: "Siloed (each team's data separate, records created twice: TPRM, cyber, and compliance each keep their own)" },
+          { id: "shared_assessments", label: "Shared assessments and issues across TPRM, cyber, and compliance teams" },
+          { id: "unified_vendor", label: "Unified risk record (every risk and control type: cyber, compliance, financial, regulatory, and reputational, rolls up to one record)" },
+          { id: "impact_network", label: "Connected impact network (vendors, risks, controls, assets, and compliance obligations on one model, so a vendor issue, a cyber finding, and a compliance gap flow to the same business-unit view)" },
         ],
       },
       {
@@ -58,7 +58,7 @@ export const grcConfig = {
           { id: "prebuilt_dashboards", label: "Prebuilt cyber risk dashboards with self-serve export" },
           { id: "automated_board_pack", label: "Automated board-pack generation (the system produces the committee-ready PPT or PDF, you review rather than assemble)" },
           { id: "unified_rollup", label: "Unified cross-module executive rollup (one board-ready view across third-party, cyber, compliance, and AI, with CISO / CRO / CAE lenses)" },
-          { id: "quantified_exposure", label: "Rollup carries quantified financial exposure (FAIR-style dollar risk) to the board" },
+          { id: "quantified_exposure", label: "Rollup carries quantified monetary risk exposure (FAIR-style, in local currency) to the board" },
         ],
       },
       {
