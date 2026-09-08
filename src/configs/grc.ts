@@ -14,7 +14,7 @@ export const grcConfig = {
     attributes: [
       {
         id: "connected_risk",
-        label: "Connected risk (TPRM, Cyber Risk, and Compliance)",
+        label: "How vendor, cyber, and compliance risk data are shared",
         in_byo: true,
         price_type: "none" as const,
         levels: [
