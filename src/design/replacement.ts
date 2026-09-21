@@ -27,11 +27,21 @@ export function replaceInvalidatedConcepts(
       valid,
     );
     if (replacement) {
+      replacement.id = `replacement-${nextReplacementNumber(valid)}`;
       valid.push(replacement);
     }
   }
 
   return valid;
+}
+
+function nextReplacementNumber(pool: Concept[]): number {
+  let max = 0;
+  for (const c of pool) {
+    const m = /^replacement-(\d+)$/.exec(c.id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max + 1;
 }
 
 export function regeneratePool(
@@ -62,7 +72,6 @@ function tryGenerateReplacement(
     if (rules.some((rule) => isRuleViolated(candidate, rule))) continue;
 
     candidate.source = "REPLACEMENT";
-    candidate.id = `replacement-${existingPool.length + 1}`;
 
     return candidate;
   }

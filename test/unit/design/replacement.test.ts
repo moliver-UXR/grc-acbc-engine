@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { replaceInvalidatedConcepts, regeneratePool } from "../../../src/design/replacement.js";
 import { Concept, CutoffRule, StudyConfig } from "../../../src/core/types.js";
 import { SeededRNG } from "../../../src/core/prng.js";
+import { isRuleViolated } from "../../../src/detection/cutoff.js";
 
 function makeConfig(): StudyConfig {
   return {
@@ -303,5 +304,116 @@ describe("regeneratePool", () => {
     const result = regeneratePool(pool, rules, c0, config, rng);
 
     expect(result).toHaveLength(6);
+  });
+
+  it("produces unique replacement IDs across two sequential regenerations, even when the second regeneration removes some of the first batch's replacements (fuzzed across many seeds)", () => {
+    // The collision depends on how many concepts survive each filtering round,
+    // which depends on which random levels landed where. Fuzz across many
+    // seeds so we reliably hit a shrinking-pool scenario (the plan's fuzz
+    // description puts the defect rate at ~16% of respondents for 2+ confirmed
+    // rules, so a few dozen seeds is enough to expose it against buggy code).
+    for (let seed = 0; seed < 60; seed++) {
+      const pool: Concept[] = [
+        { id: "c1", levels: { brand: "brand-a", color: "red", size: "small" }, source: "SCREENING" },
+        { id: "c2", levels: { brand: "brand-a", color: "blue", size: "medium" }, source: "SCREENING" },
+        { id: "c3", levels: { brand: "brand-a", color: "green", size: "large" }, source: "SCREENING" },
+        { id: "c4", levels: { brand: "brand-b", color: "red", size: "small" }, source: "SCREENING" },
+      ];
+
+      const firstRules: CutoffRule[] = [
+        { kind: "unacceptable", attributeId: "brand", levelId: "brand-a", confirmedAtScreen: 4 },
+      ];
+
+      const localRng = new SeededRNG(`fuzz-seed-${seed}`);
+      const afterFirst = regeneratePool(pool, firstRules, c0, config, localRng);
+
+      // Second regeneration: additionally invalidate color=blue, which knocks
+      // out some of the first batch's replacements and forces a second round
+      // of replacement minting on a shrunken pool.
+      const secondRules: CutoffRule[] = [
+        ...firstRules,
+        { kind: "unacceptable", attributeId: "color", levelId: "blue", confirmedAtScreen: 5 },
+      ];
+
+      const afterSecond = regeneratePool(afterFirst, secondRules, c0, config, localRng);
+
+      const allIds = afterSecond.map((c) => c.id);
+      expect(new Set(allIds).size, `seed ${seed} produced duplicate IDs: ${allIds.join(", ")}`).toBe(allIds.length);
+    }
+  });
+
+  it("never reuses a replacement-N number while a live concept still holds it (fuzzed across many seeds)", () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const pool: Concept[] = [
+        { id: "c1", levels: { brand: "brand-a", color: "red", size: "small" }, source: "SCREENING" },
+        { id: "c2", levels: { brand: "brand-a", color: "blue", size: "medium" }, source: "SCREENING" },
+        { id: "c3", levels: { brand: "brand-a", color: "green", size: "large" }, source: "SCREENING" },
+      ];
+
+      const firstRules: CutoffRule[] = [
+        { kind: "unacceptable", attributeId: "brand", levelId: "brand-a", confirmedAtScreen: 3 },
+      ];
+
+      const localRng = new SeededRNG(`fuzz-seed-b-${seed}`);
+      const afterFirst = regeneratePool(pool, firstRules, c0, config, localRng);
+
+      // Second round invalidates color=green, forcing more replacements. Any
+      // newly minted replacement-N must not collide with a surviving one.
+      const secondRules: CutoffRule[] = [
+        ...firstRules,
+        { kind: "unacceptable", attributeId: "color", levelId: "green", confirmedAtScreen: 4 },
+      ];
+
+      // Only concepts that don't violate the *new* rule are actually eligible
+      // to survive round 2 unchanged; those violating it get filtered out and
+      // their number is legitimately eligible for reuse.
+      const survivingReplacementIds = new Set(
+        afterFirst
+          .filter((c) => c.source === "REPLACEMENT")
+          .filter((c) => !secondRules.some((rule) => isRuleViolated(c, rule)))
+          .map((c) => c.id),
+      );
+
+      const afterSecond = regeneratePool(afterFirst, secondRules, c0, config, localRng);
+
+      const stillSurviving = afterSecond.filter((c) => survivingReplacementIds.has(c.id));
+      // Every concept sharing an ID with a first-round survivor must be that
+      // exact concept (same levels), not a newly minted duplicate-numbered one.
+      for (const concept of stillSurviving) {
+        const original = afterFirst.find((c) => c.id === concept.id);
+        expect(concept.levels, `seed ${seed}: id ${concept.id} reused for a different concept`).toEqual(original?.levels);
+      }
+
+      const allIds = afterSecond.map((c) => c.id);
+      expect(new Set(allIds).size, `seed ${seed} produced duplicate IDs: ${allIds.join(", ")}`).toBe(allIds.length);
+    }
+  });
+
+  it("is deterministic: same seed and same rule sequence yield identical replacement IDs across two independent runs", () => {
+    const pool: Concept[] = [
+      { id: "c1", levels: { brand: "brand-a", color: "red", size: "small" }, source: "SCREENING" },
+      { id: "c2", levels: { brand: "brand-a", color: "blue", size: "medium" }, source: "SCREENING" },
+      { id: "c3", levels: { brand: "brand-b", color: "red", size: "large" }, source: "SCREENING" },
+    ];
+
+    const firstRules: CutoffRule[] = [
+      { kind: "unacceptable", attributeId: "brand", levelId: "brand-a", confirmedAtScreen: 3 },
+    ];
+    const secondRules: CutoffRule[] = [
+      ...firstRules,
+      { kind: "unacceptable", attributeId: "color", levelId: "blue", confirmedAtScreen: 4 },
+    ];
+
+    function runSequence(seed: string): string[] {
+      const localRng = new SeededRNG(seed);
+      const afterFirst = regeneratePool(pool, firstRules, c0, config, localRng);
+      const afterSecond = regeneratePool(afterFirst, secondRules, c0, config, localRng);
+      return afterSecond.map((c) => c.id);
+    }
+
+    const runA = runSequence("determinism-seed");
+    const runB = runSequence("determinism-seed");
+
+    expect(runA).toEqual(runB);
   });
 });
