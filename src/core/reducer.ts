@@ -231,6 +231,13 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
           // DONE if calibration is off) instead of building a tournament.
           return finalizeScreening({ ...state, screened }, config);
         }
+        if (config && !hasUnseenConcept(state.conceptPool, screened)) {
+          // Pool exhausted before the completion target: nothing left to
+          // present, so finalize survivors instead of stranding the respondent
+          // on an empty screening page (mirrors the RULE_REJECTED / REGENERATE
+          // guards).
+          return finalizeScreening({ ...state, screened }, config);
+        }
         return { ...state, screened };
       }
       return state;

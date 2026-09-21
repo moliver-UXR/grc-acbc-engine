@@ -110,6 +110,110 @@ describe("reducer - screening loop on a late deal-breaker rejection", () => {
   });
 });
 
+// F5: the pool can run out of unseen concepts before screened.length reaches
+// the completion target (total_screening_screens * screens_per_concept_batch).
+// With no candidate rule pending, the normal SCREENING path used to return
+// `{ ...state, screened }` unconditionally, stranding the respondent on an
+// empty SCREENING task forever. This mirrors the RULE_REJECTED (:257) and
+// REGENERATE (:273) guards, but for the fourth site at :234.
+function buildExhaustionConfig() {
+  return parseConfig({
+    study: {
+      attributes: [
+        {
+          id: "brand",
+          label: "Brand",
+          in_byo: true,
+          price_type: "none",
+          // 16 distinct levels, one per pool concept, so every level's
+          // exposure stays at 1 (below detectCandidateRule's minExposure of
+          // 3) no matter how responses are mixed: no candidate rule can ever
+          // fire, isolating this test to the pool-exhaustion guard alone.
+          levels: Array.from({ length: 16 }, (_, i) => ({ id: `brand_${i}`, label: `Brand ${i}` })),
+        },
+      ],
+      design: {
+        T: 6,
+        Amin: 1,
+        Amax: 1,
+        screens_per_concept_batch: 6,
+        total_screening_screens: 3, // completion target = 18, above the 16-concept pool
+        price_variation_pct: 0,
+        price_rounding: 1,
+      },
+      phases: {
+        byo: true,
+        screening: true,
+        must_have: true,
+        unacceptable: true,
+        tournament: true,
+        calibration: false,
+      },
+      estimation: { method: "mnl", price_function: "linear" },
+    },
+  });
+}
+
+function buildExhaustionState(config: ReturnType<typeof buildExhaustionConfig>): EngineState {
+  const byoConcept: Concept = { id: "byo-concept", levels: { brand: "brand_0" }, source: "BYO" };
+  const pool: Concept[] = Array.from({ length: 16 }, (_, i) => ({
+    id: `concept-${i}`,
+    levels: { brand: `brand_${i}` },
+    source: "SCREENING" as const,
+  }));
+  // Screen the first 12 of 16 concepts, mixing accept/reject. 12 is below the
+  // 18-screen completion target and below the pool size, so this is a normal,
+  // unremarkable mid-screening state.
+  const screened = pool.slice(0, 12).map((c, i) => ({ conceptId: c.id, possible: i % 2 === 0, screenIndex: i }));
+  return {
+    ...createInitialState("s", "r", config, "seed"),
+    phase: "SCREENING",
+    byoConcept,
+    conceptPool: pool,
+    screened,
+  };
+}
+
+describe("reducer - SCREENING must not dead-end on an exhausted pool", () => {
+  it("finalizes forward when the last unseen concept is screened before the completion target", () => {
+    const config = buildExhaustionConfig();
+    let state = buildExhaustionState(config);
+
+    // Screen the remaining 4 concepts (12..15): screened.length becomes 16,
+    // still below the 18-screen completion target, but the pool now has no
+    // unseen concept left.
+    const responses = state.conceptPool.slice(12).map((c, i) => ({
+      conceptId: c.id,
+      possible: i % 2 === 0,
+      screenIndex: 12 + i,
+    }));
+    state = reduce(state, { type: "SCREEN_SUBMITTED", responses }, config);
+
+    expect(state.screened).toHaveLength(16);
+    expect(state.candidateRule).toBeNull();
+    // Must not be stranded back in SCREENING with nothing left to present.
+    expect(["TOURNAMENT", "CALIBRATION", "DONE"]).toContain(state.phase);
+    expect(state.phase).not.toBe("SCREENING");
+  });
+
+  it("does not finalize while unseen concepts remain (regression guard)", () => {
+    const config = buildExhaustionConfig();
+    let state = buildExhaustionState(config);
+
+    // Screen only 2 of the remaining 4: unseen concepts (2 of them) still
+    // remain in the pool, so screening must continue normally.
+    const responses = state.conceptPool.slice(12, 14).map((c, i) => ({
+      conceptId: c.id,
+      possible: i % 2 === 0,
+      screenIndex: 12 + i,
+    }));
+    state = reduce(state, { type: "SCREEN_SUBMITTED", responses }, config);
+
+    expect(state.phase).toBe("SCREENING");
+    expect(state.screened).toHaveLength(14);
+  });
+});
+
 describe("reducer - normal screening is unaffected", () => {
   it("continues screening when unseen concepts remain and no candidate rule is pending", () => {
     const config = parseConfig({
