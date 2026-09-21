@@ -241,8 +241,11 @@ export function buildEngineEventFromChoice(
 
   if (state.phase === "CALIBRATION") {
     const raw = choice["purchase_intent"];
+    if (typeof raw !== "string") {
+      throw new Error("purchase_intent must be an integer 1-5");
+    }
     const purchaseIntent = Number(raw);
-    if (raw === undefined || !Number.isInteger(purchaseIntent) || purchaseIntent < 1 || purchaseIntent > 5) {
+    if (!Number.isInteger(purchaseIntent) || purchaseIntent < 1 || purchaseIntent > 5) {
       throw new Error("purchase_intent must be an integer 1-5");
     }
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];

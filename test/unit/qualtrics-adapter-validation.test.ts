@@ -89,6 +89,39 @@ describe("buildEngineEventFromChoice — F18 input validation", () => {
         answer: { conceptId: "concept-a", purchaseIntent: 4 },
       });
     });
+
+    it("throws when purchase_intent is a boolean (Number(true) === 1 must not pass)", () => {
+      const state = calibrationState("concept-a");
+      expect(() =>
+        buildEngineEventFromChoice(
+          state,
+          "calibration-0",
+          { purchase_intent: true } as unknown as Record<string, string>
+        )
+      ).toThrow();
+    });
+
+    it("throws when purchase_intent is an array (Number([\"3\"]) === 3 must not pass)", () => {
+      const state = calibrationState("concept-a");
+      expect(() =>
+        buildEngineEventFromChoice(
+          state,
+          "calibration-0",
+          { purchase_intent: ["3"] } as unknown as Record<string, string>
+        )
+      ).toThrow();
+    });
+
+    it("throws when purchase_intent is a bare number, not a string (client always sends a string)", () => {
+      const state = calibrationState("concept-a");
+      expect(() =>
+        buildEngineEventFromChoice(
+          state,
+          "calibration-0",
+          { purchase_intent: 3 } as unknown as Record<string, string>
+        )
+      ).toThrow();
+    });
   });
 
   describe("CONFIRM_MUST_HAVE / CONFIRM_UNACCEPTABLE", () => {
