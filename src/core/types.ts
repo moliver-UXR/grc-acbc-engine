@@ -95,7 +95,9 @@ export interface ScreeningResponse {
 }
 
 export interface TournamentTask {
-  concepts: [Concept, Concept, Concept];
+  // A matchup always has 2 or 3 concepts, never 1: a 1-concept group would be
+  // a degenerate "choose among options" task with nothing to compare against.
+  concepts: [Concept, Concept] | [Concept, Concept, Concept];
   grayedAttributes: string[];
   winnerConceptId: string | null;
 }

@@ -148,7 +148,10 @@ export function serializeStateToQualtricsTask(
   if (state.phase === "CALIBRATION") {
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];
     const lastTask = lastRound?.tasks[lastRound.tasks.length - 1];
-    const winnerId = lastTask?.winnerConceptId;
+    // A sole survivor at screening skips the tournament entirely (no rounds
+    // are built), so there is no winnerConceptId to read: fall back to the
+    // sole survivor itself as the champion.
+    const winnerId = lastTask?.winnerConceptId ?? state.survivingConceptIds[0];
     const winner = state.conceptPool.find((c) => c.id === winnerId);
 
     return {
@@ -219,7 +222,8 @@ export function buildEngineEventFromChoice(
     const purchaseIntent = parseInt(choice["purchase_intent"] ?? "3", 10);
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];
     const lastTask = lastRound?.tasks[lastRound.tasks.length - 1];
-    const conceptId = lastTask?.winnerConceptId ?? "";
+    // Same sole-survivor fallback as serializeStateToQualtricsTask above.
+    const conceptId = lastTask?.winnerConceptId ?? state.survivingConceptIds[0] ?? "";
     return { type: "CALIBRATION_SUBMITTED", answer: { conceptId, purchaseIntent } };
   }
 

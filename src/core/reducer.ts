@@ -42,10 +42,41 @@ function collectSurvivors(screened: ScreeningResponse[]): string[] {
   return screened.filter(s => s.possible).map(s => s.conceptId);
 }
 
-function makeTriples<T>(items: T[]): T[][] {
-  const triples: T[][] = [];
-  for (let i = 0; i < items.length; i += 3) triples.push(items.slice(i, i + 3));
-  return triples;
+/**
+ * Chunks survivors into tournament matchup groups of size 2 or 3, never 1.
+ * A group of 1 would render as a degenerate matchup (a single concept with
+ * nothing to compare it against), so any remainder of 1 from a straight
+ * chunk-by-3 is rebalanced by pulling the last 4 items into two groups of 2.
+ *
+ * N==0 -> []; N<=3 -> one group of N; otherwise chunk by 3, with a
+ * remainder of 1 rebalanced into 2+2 (e.g. 4 -> [2,2], 7 -> [3,2,2],
+ * 10 -> [3,3,2,2]; a remainder of 2 just trails as its own group of 2,
+ * e.g. 5 -> [3,2]).
+ */
+export function chunkIntoTournamentGroups<T>(items: T[]): T[][] {
+  const n = items.length;
+  if (n === 0) return [];
+  if (n <= 3) return [items.slice()];
+
+  const remainder = n % 3;
+  let groupsOf3 = Math.floor(n / 3);
+  const sizes: number[] = [];
+  if (remainder === 1) {
+    groupsOf3 -= 1;
+    for (let i = 0; i < groupsOf3; i++) sizes.push(3);
+    sizes.push(2, 2);
+  } else {
+    for (let i = 0; i < groupsOf3; i++) sizes.push(3);
+    if (remainder === 2) sizes.push(2);
+  }
+
+  const groups: T[][] = [];
+  let idx = 0;
+  for (const size of sizes) {
+    groups.push(items.slice(idx, idx + size));
+    idx += size;
+  }
+  return groups;
 }
 
 function sharedAttributes(concepts: Concept[]): string[] {
@@ -54,25 +85,25 @@ function sharedAttributes(concepts: Concept[]): string[] {
   return keys.filter(k => concepts.every(c => c.levels[k] === concepts[0].levels[k]));
 }
 
-function buildTournament(survivorIds: string[], pool: Concept[], seed: string): TournamentRound[] {
+export function buildTournament(survivorIds: string[], pool: Concept[], seed: string): TournamentRound[] {
   const rng = new SeededRNG(seed + "-tournament");
   const concepts = survivorIds.map(id => pool.find(c => c.id === id)).filter((c): c is Concept => c !== null);
   const shuffled = rng.shuffle(concepts);
   const rounds: TournamentRound[] = [];
-  let current = makeTriples(shuffled);
+  let current = chunkIntoTournamentGroups(shuffled);
   let round = 1;
   while (current.length > 0) {
     rounds.push({
       round,
-      tasks: current.map(triple => ({
-        concepts: triple as [Concept, Concept, Concept],
-        grayedAttributes: sharedAttributes(triple),
+      tasks: current.map(group => ({
+        concepts: group as [Concept, Concept] | [Concept, Concept, Concept],
+        grayedAttributes: sharedAttributes(group),
         winnerConceptId: null,
       })),
     });
     if (current.length <= 1) break;
     const placeholders = current.map((_, i) => ({ id: `winner-r${round}-${i}`, levels: {}, source: "TOURNAMENT" as const }));
-    current = makeTriples(placeholders);
+    current = chunkIntoTournamentGroups(placeholders);
     round++;
   }
   return rounds;
@@ -116,7 +147,7 @@ function resolveNextRoundConcepts(
       : {
           ...r,
           tasks: r.tasks.map((t) => {
-            const concepts = t.concepts.map(resolve) as [Concept, Concept, Concept];
+            const concepts = t.concepts.map(resolve) as [Concept, Concept] | [Concept, Concept, Concept];
             return { ...t, concepts, grayedAttributes: sharedAttributes(concepts) };
           }),
         }
@@ -145,6 +176,13 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
           // TOURNAMENT phase would then throw, so end the ACBC cleanly instead.
           if (survivors.length === 0) {
             return { ...state, screened, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
+          }
+          // A sole survivor has no opponent to face in a matchup, so a
+          // 1-concept tournament round would be degenerate. Treat it as the
+          // champion and go straight to calibration (or DONE if calibration
+          // is off) instead of building a tournament.
+          if (survivors.length === 1) {
+            return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: [], phase: config.study.phases.calibration ? "CALIBRATION" : "DONE" };
           }
           const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
           return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
@@ -176,6 +214,11 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
           const survivors = collectSurvivors(state.screened);
           if (survivors.length === 0) {
             return { ...state, conceptPool: pool, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
+          }
+          // Same degenerate-matchup guard as the screening-complete branch above:
+          // a sole survivor becomes the champion directly, no tournament round.
+          if (survivors.length === 1) {
+            return { ...state, conceptPool: pool, survivingConceptIds: survivors, tournamentRounds: [], phase: config.study.phases.calibration ? "CALIBRATION" : "DONE" };
           }
           const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
           return { ...state, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
