@@ -149,7 +149,8 @@ function hasUnseenConcept(pool: Concept[], screened: ScreeningResponse[]): boole
  * study (DONE), a sole survivor becomes the champion directly (no degenerate
  * 1-concept tournament round), and two or more survivors get a tournament
  * bracket. Shared by every site that can end screening (screening-complete,
- * REGENERATE-exhausted, and a RULE_REJECTED with nothing left to screen) so
+ * REGENERATE-exhausted, a RULE_REJECTED with nothing left to screen, and a
+ * SCREEN_SUBMITTED that exhausts the pool before the completion target) so
  * the finalize decision lives in exactly one place.
  */
 function finalizeScreening(state: EngineState, config: StudyConfig): EngineState {
