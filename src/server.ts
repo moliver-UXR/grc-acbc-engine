@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { ACBCEngine, MemoryStorage } from "./index.js";
+import type { EngineState } from "./core/types.js";
 import { grcConfig } from "./configs/grc.js";
 import {
   serializeStateToQualtricsTask,
@@ -23,6 +24,23 @@ function cors(res: http.ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+/**
+ * REGENERATE is a transient, respondent-invisible phase. When a cutoff rule is
+ * confirmed the reducer rebuilds the concept pool in-process and parks the
+ * session in REGENERATE, whose serialized task carries no choice for the client
+ * to answer. Step the engine forward until it reaches a phase the respondent can
+ * actually act on, so /next never hands the survey a dead-end task. The
+ * REGENERATE reducer branch ignores its event, so any event advances it.
+ */
+export function advancePastTransientPhases(engine: ACBCEngine): EngineState {
+  let state = engine.getState();
+  let guard = 0;
+  while (state.phase === "REGENERATE" && guard++ < 10) {
+    state = engine.submitEvent({ type: "RULE_CONFIRMED" });
+  }
+  return state;
 }
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
@@ -99,7 +117,12 @@ export async function startServer(port: number): Promise<http.Server> {
       console.log(`[init] respondentId=${respondentId} studyId=${studyId} sessionId=${sessionId}`);
 
       const state = engine.getState();
-      const taskJson = serializeStateToQualtricsTask(state, engine.getConfig());
+      let taskJson;
+      try { taskJson = serializeStateToQualtricsTask(state, engine.getConfig()); }
+      catch (err) {
+        console.log(`[error] /init — serialize failed for sessionId=${sessionId} phase=${state.phase}: ${String(err)}`);
+        json(res, 500, { error: `serialize failed: ${String(err)}` }); return;
+      }
       json(res, 200, {
         sessionId,
         acbcTaskJson: JSON.stringify(taskJson),
@@ -131,6 +154,7 @@ export async function startServer(port: number): Promise<http.Server> {
       try {
         const event = buildEngineEventFromChoice(engine.getState(), body.taskId, body.choice);
         newState = engine.submitEvent(event);
+        newState = advancePastTransientPhases(engine);
       } catch (err) {
         console.log(`[error] /next — event build failed for sessionId=${body.sessionId}: ${String(err)}`);
         json(res, 400, { error: String(err) }); return;
@@ -139,7 +163,12 @@ export async function startServer(port: number): Promise<http.Server> {
       console.log(`[next] sessionId=${body.sessionId} taskId=${body.taskId} taskType=${body.taskType} → phase=${newState.phase}`);
 
       const isDone = newState.phase === "DONE";
-      const taskJson = isDone ? {} : serializeStateToQualtricsTask(newState, engine.getConfig());
+      let taskJson;
+      try { taskJson = isDone ? {} : serializeStateToQualtricsTask(newState, engine.getConfig()); }
+      catch (err) {
+        console.log(`[error] /next — serialize failed for sessionId=${body.sessionId} phase=${newState.phase}: ${String(err)}`);
+        json(res, 500, { error: `serialize failed: ${String(err)}` }); return;
+      }
 
       json(res, 200, {
         sessionId: body.sessionId,

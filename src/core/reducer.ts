@@ -82,6 +82,47 @@ function mapRuleToPhase(rule: CutoffRule): Phase {
   return rule.kind === "mustHave" ? "CONFIRM_MUST_HAVE" : "CONFIRM_UNACCEPTABLE";
 }
 
+/**
+ * Backfill the round that follows a just-completed one. buildTournament seeds
+ * every round past the first with placeholder concepts (winner-r{round}-{i},
+ * empty levels) because the winners are not known until the earlier round is
+ * played. Once a round finishes we resolve those placeholders to the actual
+ * winning concepts, so later matchups (and the calibration champion) render real
+ * attribute levels instead of the em-dash fallback. grayedAttributes is
+ * recomputed against the resolved concepts.
+ */
+function resolveNextRoundConcepts(
+  rounds: TournamentRound[],
+  completedRoundIndex: number,
+  pool: Concept[]
+): TournamentRound[] {
+  const nextIndex = completedRoundIndex + 1;
+  if (nextIndex >= rounds.length) return rounds;
+  const completed = rounds[completedRoundIndex];
+  const winners = completed.tasks.map(
+    (t) => pool.find((c) => c.id === t.winnerConceptId) ?? null
+  );
+  const resolve = (concept: Concept): Concept => {
+    const m = /^winner-r(\d+)-(\d+)$/.exec(concept.id);
+    if (m && Number(m[1]) === completed.round) {
+      const winner = winners[Number(m[2])];
+      if (winner) return winner;
+    }
+    return concept;
+  };
+  return rounds.map((r, idx) =>
+    idx !== nextIndex
+      ? r
+      : {
+          ...r,
+          tasks: r.tasks.map((t) => {
+            const concepts = t.concepts.map(resolve) as [Concept, Concept, Concept];
+            return { ...t, concepts, grayedAttributes: sharedAttributes(concepts) };
+          }),
+        }
+  );
+}
+
 export function reduce(state: EngineState, event: EngineEvent, config?: StudyConfig): EngineState {
   switch (state.phase) {
     case "BYO":
@@ -99,6 +140,12 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
         if (candidate) return { ...state, screened, candidateRule: candidate, phase: mapRuleToPhase(candidate) };
         if (config && screeningComplete(screened, config)) {
           const survivors = collectSurvivors(screened);
+          // No accepted concepts means there is nothing to run a tournament over.
+          // buildTournament would return an empty bracket and serializing the
+          // TOURNAMENT phase would then throw, so end the ACBC cleanly instead.
+          if (survivors.length === 0) {
+            return { ...state, screened, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
+          }
           const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
           return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
         }
@@ -117,6 +164,22 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
       if (config && state.byoConcept) {
         const rng = new SeededRNG(state.rngSeed);
         const pool = regeneratePool(state.conceptPool, state.confirmedRules, state.byoConcept, config, rng);
+        // The confirmed dealbreakers can rule out every buildable concept, or leave
+        // only concepts the respondent has already screened. Either way there is
+        // nothing new to present, so resolve now rather than parking the respondent
+        // on a screening page that can never present a concept or complete. (An
+        // all-BYO attribute set thins per-level exposure, so a reject-everything
+        // respondent reaches this with a non-empty but fully-seen pool.)
+        const screenedIds = new Set(state.screened.map((s) => s.conceptId));
+        const hasUnseen = pool.some((c) => !screenedIds.has(c.id));
+        if (!hasUnseen) {
+          const survivors = collectSurvivors(state.screened);
+          if (survivors.length === 0) {
+            return { ...state, conceptPool: pool, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
+          }
+          const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
+          return { ...state, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
+        }
         return { ...state, conceptPool: pool, phase: "SCREENING" };
       }
       return { ...state, phase: "SCREENING" };
@@ -139,7 +202,8 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
           if (nextRound >= rounds.length) {
             return { ...state, tournamentRounds: rounds, currentTournamentRound: nextRound, phase: config?.study.phases.calibration ? "CALIBRATION" : "DONE" };
           }
-          return { ...state, tournamentRounds: rounds, currentTournamentRound: nextRound, currentTournamentTask: 0 };
+          const resolved = resolveNextRoundConcepts(rounds, state.currentTournamentRound, state.conceptPool);
+          return { ...state, tournamentRounds: resolved, currentTournamentRound: nextRound, currentTournamentTask: 0 };
         }
         return { ...state, tournamentRounds: rounds, currentTournamentTask: nextTask };
       }
