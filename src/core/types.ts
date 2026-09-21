@@ -122,6 +122,7 @@ export interface EngineState {
   screened: ScreeningResponse[];
   candidateRule: CutoffRule | null;
   confirmedRules: CutoffRule[];
+  rejectedRules: CutoffRule[];
   survivingConceptIds: string[];
   tournamentRounds: TournamentRound[];
   currentTournamentRound: number;

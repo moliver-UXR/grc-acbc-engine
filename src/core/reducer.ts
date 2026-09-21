@@ -21,6 +21,7 @@ export function createInitialState(
     screened: [],
     candidateRule: null,
     confirmedRules: [],
+    rejectedRules: [],
     survivingConceptIds: [],
     tournamentRounds: [],
     currentTournamentRound: 0,
@@ -134,6 +135,36 @@ function championPhase(config: StudyConfig): "CALIBRATION" | "DONE" {
 }
 
 /**
+ * Whether the concept pool has any concept the respondent has not already
+ * rated. Shared by the RULE_REJECTED handler and the REGENERATE branch so a
+ * respondent is never parked on a SCREENING task that can present nothing.
+ */
+function hasUnseenConcept(pool: Concept[], screened: ScreeningResponse[]): boolean {
+  const screenedIds = new Set(screened.map((s) => s.conceptId));
+  return pool.some((c) => !screenedIds.has(c.id));
+}
+
+/**
+ * Resolves survivors into a terminal-ish phase: zero survivors ends the
+ * study (DONE), a sole survivor becomes the champion directly (no degenerate
+ * 1-concept tournament round), and two or more survivors get a tournament
+ * bracket. Shared by every site that can end screening (screening-complete,
+ * REGENERATE-exhausted, and a RULE_REJECTED with nothing left to screen) so
+ * the finalize decision lives in exactly one place.
+ */
+function finalizeScreening(state: EngineState, config: StudyConfig): EngineState {
+  const survivors = collectSurvivors(state.screened);
+  if (survivors.length === 0) {
+    return { ...state, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
+  }
+  if (survivors.length === 1) {
+    return { ...state, survivingConceptIds: survivors, tournamentRounds: [], phase: championPhase(config) };
+  }
+  const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
+  return { ...state, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
+}
+
+/**
  * Backfill the round that follows a just-completed one. buildTournament seeds
  * every round past the first with placeholder concepts (winner-r{round}-{i},
  * empty levels) because the winners are not known until the earlier round is
@@ -187,25 +218,18 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
     case "SCREENING":
       if (event.type === "SCREEN_SUBMITTED") {
         const screened = [...state.screened, ...event.responses];
-        const candidate = detectCandidateRule(screened, state.conceptPool, state.confirmedRules);
+        const alreadyHandled = [...state.confirmedRules, ...state.rejectedRules];
+        const candidate = detectCandidateRule(screened, state.conceptPool, alreadyHandled);
         if (candidate) return { ...state, screened, candidateRule: candidate, phase: mapRuleToPhase(candidate) };
         if (config && screeningComplete(screened, config)) {
-          const survivors = collectSurvivors(screened);
           // No accepted concepts means there is nothing to run a tournament over.
           // buildTournament would return an empty bracket and serializing the
           // TOURNAMENT phase would then throw, so end the ACBC cleanly instead.
-          if (survivors.length === 0) {
-            return { ...state, screened, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
-          }
           // A sole survivor has no opponent to face in a matchup, so a
-          // 1-concept tournament round would be degenerate. Treat it as the
-          // champion and go straight to calibration (or DONE if calibration
-          // is off) instead of building a tournament.
-          if (survivors.length === 1) {
-            return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: [], phase: championPhase(config) };
-          }
-          const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
-          return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
+          // 1-concept tournament round would be degenerate; finalizeScreening
+          // treats it as the champion and goes straight to calibration (or
+          // DONE if calibration is off) instead of building a tournament.
+          return finalizeScreening({ ...state, screened }, config);
         }
         return { ...state, screened };
       }
@@ -216,7 +240,25 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
         if (!state.candidateRule) return state;
         return { ...state, confirmedRules: [...state.confirmedRules, state.candidateRule], candidateRule: null, phase: "REGENERATE" };
       }
-      if (event.type === "RULE_REJECTED") return { ...state, candidateRule: null, phase: "SCREENING" };
+      if (event.type === "RULE_REJECTED") {
+        if (!state.candidateRule) return state;
+        const rejectedState = {
+          ...state,
+          rejectedRules: [...state.rejectedRules, state.candidateRule],
+          candidateRule: null,
+        };
+        // A rejected rule must never resurface: with nothing new added to
+        // `screened`, the same evidence that produced this candidate would
+        // otherwise be re-detected on the very next screening pass. If the
+        // pool has no unseen concept left to present, or screening was
+        // already complete, there is no meaningful SCREENING task to return
+        // to, so finalize survivors now instead of looping forever between
+        // CONFIRM_UNACCEPTABLE and an empty SCREENING screen.
+        if (config && (!hasUnseenConcept(state.conceptPool, state.screened) || screeningComplete(state.screened, config))) {
+          return finalizeScreening(rejectedState, config);
+        }
+        return { ...rejectedState, phase: "SCREENING" };
+      }
       return state;
     case "REGENERATE":
       if (config && state.byoConcept) {
@@ -228,20 +270,12 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
         // on a screening page that can never present a concept or complete. (An
         // all-BYO attribute set thins per-level exposure, so a reject-everything
         // respondent reaches this with a non-empty but fully-seen pool.)
-        const screenedIds = new Set(state.screened.map((s) => s.conceptId));
-        const hasUnseen = pool.some((c) => !screenedIds.has(c.id));
-        if (!hasUnseen) {
-          const survivors = collectSurvivors(state.screened);
-          if (survivors.length === 0) {
-            return { ...state, conceptPool: pool, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
-          }
-          // Same degenerate-matchup guard as the screening-complete branch above:
-          // a sole survivor becomes the champion directly, no tournament round.
-          if (survivors.length === 1) {
-            return { ...state, conceptPool: pool, survivingConceptIds: survivors, tournamentRounds: [], phase: championPhase(config) };
-          }
-          const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
-          return { ...state, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
+        if (!hasUnseenConcept(pool, state.screened)) {
+          // Same degenerate-matchup guard as the screening-complete branch above,
+          // via the shared finalizeScreening helper: zero survivors ends the
+          // study, a sole survivor becomes the champion directly (no tournament
+          // round), and multiple survivors get a tournament bracket.
+          return finalizeScreening({ ...state, conceptPool: pool }, config);
         }
         return { ...state, conceptPool: pool, phase: "SCREENING" };
       }
