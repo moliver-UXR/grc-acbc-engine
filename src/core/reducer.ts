@@ -96,7 +96,7 @@ function sharedAttributes(concepts: Concept[]): string[] {
 // Exported for direct testing (see the comment on chunkIntoTournamentGroups above).
 export function buildTournament(survivorIds: string[], pool: Concept[], seed: string): TournamentRound[] {
   const rng = new SeededRNG(seed + "-tournament");
-  const concepts = survivorIds.map(id => pool.find(c => c.id === id)).filter((c): c is Concept => c !== null);
+  const concepts = survivorIds.map(id => pool.find(c => c.id === id)).filter((c): c is Concept => c != null);
   const shuffled = rng.shuffle(concepts);
   const rounds: TournamentRound[] = [];
   let current = chunkIntoTournamentGroups(shuffled);
@@ -154,15 +154,22 @@ function hasUnseenConcept(pool: Concept[], screened: ScreeningResponse[]): boole
  * the finalize decision lives in exactly one place.
  */
 function finalizeScreening(state: EngineState, config: StudyConfig): EngineState {
-  const survivors = collectSurvivors(state.screened);
-  if (survivors.length === 0) {
+  const survivorIds = collectSurvivors(state.screened);
+  // Resolve survivor ids against the pool before branching: a regeneration
+  // (or any other pool mutation) can drop a concept the respondent already
+  // accepted, so the raw id count can overstate what is actually buildable.
+  // `resolved` stays a string[] of ids (never mapped to Concept objects) —
+  // both serializeStateToQualtricsTask and buildEngineEventFromChoice read
+  // survivingConceptIds[0] as a string id to look up in conceptPool.
+  const resolved = survivorIds.filter(id => state.conceptPool.some(c => c.id === id));
+  if (resolved.length === 0) {
     return { ...state, survivingConceptIds: [], tournamentRounds: [], phase: "DONE" };
   }
-  if (survivors.length === 1) {
-    return { ...state, survivingConceptIds: survivors, tournamentRounds: [], phase: championPhase(config) };
+  if (resolved.length === 1) {
+    return { ...state, survivingConceptIds: resolved, tournamentRounds: [], phase: championPhase(config) };
   }
-  const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
-  return { ...state, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
+  const rounds = buildTournament(resolved, state.conceptPool, state.rngSeed);
+  return { ...state, survivingConceptIds: resolved, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
 }
 
 /**
