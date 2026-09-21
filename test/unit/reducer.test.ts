@@ -75,15 +75,24 @@ describe("reduce - CONFIRM phases", () => {
     expect(next.candidateRule).toBeNull();
   });
 
-  it("RULE_REJECTED returns to SCREENING", () => {
+  it("RULE_REJECTED returns to SCREENING when unseen concepts remain", () => {
+    // An unseen concept in the pool means there is a real screening task to
+    // return to, so the rejection just records the rule and goes back to
+    // SCREENING (contrast with the pool-exhausted / screening-complete case
+    // covered in test/unit/screening-loop.test.ts, which must finalize
+    // instead of looping).
     const state: EngineState = {
       ...createInitialState("s", "r", config, "seed"),
       phase: "CONFIRM_UNACCEPTABLE",
+      conceptPool: [{ id: "concept-unseen", levels: { color: "color_blue" }, source: "SCREENING" }],
       candidateRule: { kind: "unacceptable", attributeId: "color", levelId: "color_green", confirmedAtScreen: 1 },
     };
     const next = reduce(state, { type: "RULE_REJECTED" }, config);
     expect(next.phase).toBe("SCREENING");
     expect(next.candidateRule).toBeNull();
+    expect(next.rejectedRules).toEqual([
+      { kind: "unacceptable", attributeId: "color", levelId: "color_green", confirmedAtScreen: 1 },
+    ]);
   });
 });
 

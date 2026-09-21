@@ -148,7 +148,12 @@ export function serializeStateToQualtricsTask(
   if (state.phase === "CALIBRATION") {
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];
     const lastTask = lastRound?.tasks[lastRound.tasks.length - 1];
-    const winnerId = lastTask?.winnerConceptId;
+    // A sole survivor at screening skips the tournament entirely (no rounds
+    // are built), so there is no winnerConceptId to read: fall back to the
+    // sole survivor itself as the champion. No further "?? ''" fallback is
+    // needed here: winnerId only feeds a lookup below, and an undefined id
+    // simply yields no match (winner stays undefined, same as today).
+    const winnerId = lastTask?.winnerConceptId ?? state.survivingConceptIds[0];
     const winner = state.conceptPool.find((c) => c.id === winnerId);
 
     return {
@@ -219,7 +224,11 @@ export function buildEngineEventFromChoice(
     const purchaseIntent = parseInt(choice["purchase_intent"] ?? "3", 10);
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];
     const lastTask = lastRound?.tasks[lastRound.tasks.length - 1];
-    const conceptId = lastTask?.winnerConceptId ?? "";
+    // Same sole-survivor fallback as serializeStateToQualtricsTask above,
+    // but conceptId here feeds CalibrationAnswer.conceptId (a required
+    // string), so it carries the extra "?? ''" that field needs: this is
+    // not an inconsistency, just a stricter target type than the lookup above.
+    const conceptId = lastTask?.winnerConceptId ?? state.survivingConceptIds[0] ?? "";
     return { type: "CALIBRATION_SUBMITTED", answer: { conceptId, purchaseIntent } };
   }
 
