@@ -52,6 +52,10 @@ function collectSurvivors(screened: ScreeningResponse[]): string[] {
  * remainder of 1 rebalanced into 2+2 (e.g. 4 -> [2,2], 7 -> [3,2,2],
  * 10 -> [3,3,2,2]; a remainder of 2 just trails as its own group of 2,
  * e.g. 5 -> [3,2]).
+ *
+ * Exported (like buildTournament below) so test/unit/tournament-grouping.test.ts
+ * can assert partitions and multi-round shapes directly; both are otherwise
+ * internal to the reducer's TOURNAMENT construction.
  */
 export function chunkIntoTournamentGroups<T>(items: T[]): T[][] {
   const n = items.length;
@@ -59,14 +63,17 @@ export function chunkIntoTournamentGroups<T>(items: T[]): T[][] {
   if (n <= 3) return [items.slice()];
 
   const remainder = n % 3;
-  let groupsOf3 = Math.floor(n / 3);
+  // A remainder of 1 cannot stand on its own (that is the degenerate case
+  // this function exists to avoid), so borrow one full triple back and
+  // split those 4 items into two pairs instead.
+  let numFullTriples = Math.floor(n / 3);
   const sizes: number[] = [];
   if (remainder === 1) {
-    groupsOf3 -= 1;
-    for (let i = 0; i < groupsOf3; i++) sizes.push(3);
+    numFullTriples -= 1;
+    for (let i = 0; i < numFullTriples; i++) sizes.push(3);
     sizes.push(2, 2);
   } else {
-    for (let i = 0; i < groupsOf3; i++) sizes.push(3);
+    for (let i = 0; i < numFullTriples; i++) sizes.push(3);
     if (remainder === 2) sizes.push(2);
   }
 
@@ -85,6 +92,7 @@ function sharedAttributes(concepts: Concept[]): string[] {
   return keys.filter(k => concepts.every(c => c.levels[k] === concepts[0].levels[k]));
 }
 
+// Exported for direct testing (see the comment on chunkIntoTournamentGroups above).
 export function buildTournament(survivorIds: string[], pool: Concept[], seed: string): TournamentRound[] {
   const rng = new SeededRNG(seed + "-tournament");
   const concepts = survivorIds.map(id => pool.find(c => c.id === id)).filter((c): c is Concept => c !== null);
@@ -111,6 +119,18 @@ export function buildTournament(survivorIds: string[], pool: Concept[], seed: st
 
 function mapRuleToPhase(rule: CutoffRule): Phase {
   return rule.kind === "mustHave" ? "CONFIRM_MUST_HAVE" : "CONFIRM_UNACCEPTABLE";
+}
+
+/**
+ * The phase to enter once a single concept remains as the tournament
+ * champion, with no opponent left to run a matchup against: CALIBRATION if
+ * that phase is enabled, DONE otherwise. Shared by both TOURNAMENT-entry
+ * sites below (the screening-complete branch and the REGENERATE-exhausted
+ * branch) so a future change to this rule cannot be updated at one site and
+ * missed at the other.
+ */
+function championPhase(config: StudyConfig): "CALIBRATION" | "DONE" {
+  return config.study.phases.calibration ? "CALIBRATION" : "DONE";
 }
 
 /**
@@ -182,7 +202,7 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
           // champion and go straight to calibration (or DONE if calibration
           // is off) instead of building a tournament.
           if (survivors.length === 1) {
-            return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: [], phase: config.study.phases.calibration ? "CALIBRATION" : "DONE" };
+            return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: [], phase: championPhase(config) };
           }
           const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
           return { ...state, screened, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
@@ -218,7 +238,7 @@ export function reduce(state: EngineState, event: EngineEvent, config?: StudyCon
           // Same degenerate-matchup guard as the screening-complete branch above:
           // a sole survivor becomes the champion directly, no tournament round.
           if (survivors.length === 1) {
-            return { ...state, conceptPool: pool, survivingConceptIds: survivors, tournamentRounds: [], phase: config.study.phases.calibration ? "CALIBRATION" : "DONE" };
+            return { ...state, conceptPool: pool, survivingConceptIds: survivors, tournamentRounds: [], phase: championPhase(config) };
           }
           const rounds = buildTournament(survivors, state.conceptPool, state.rngSeed);
           return { ...state, survivingConceptIds: survivors, tournamentRounds: rounds, phase: config.study.phases.tournament ? "TOURNAMENT" : "DONE" };
