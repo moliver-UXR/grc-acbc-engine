@@ -9,19 +9,32 @@
 // introduced only in screening. estimation.price_function stays set because the
 // schema requires it; with no price attribute it is inert (the estimation
 // matrix simply carries no price column).
+//
+// PROPOSED (2026-09-21, v2 language + structural reconciliation). NOT YET
+// APPLIED (Qualtrics/grc.ts hold). Changes vs live:
+//  - All level labels reworded to the v2 team-named language (07-draft-survey.md
+//    v2 tab / Google Doc v2). Level IDs unchanged except where noted below, so
+//    analysis keying stays stable.
+//  - controls_compliance: ADDED a 5th level `control_impact` (proactive top
+//    rung). Reference level (last listed) moves from cross_framework to
+//    control_impact. DORA retained in the cross_framework label.
+//  - deployment_location: REMOVED `cmk_in_region` (moved to firmographics) and
+//    RENAMED `onprem_sovereign` -> `onprem_selfhosted` (sovereign dropped).
+//  - Net effects-coding K is unchanged (A3 +1 level, A7 -1 level cancel), so
+//    K = 28 still. _attributes.R MUST mirror the A3 add + A7 remove/rename.
 export const grcConfig = {
   study: {
     attributes: [
       {
         id: "connected_risk",
-        label: "How vendor, cyber, and compliance risk data are shared",
+        label: "Risk-exposure visibility",
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "siloed", label: "Siloed (each team's data separate, records created twice: TPRM, cyber, and compliance each keep their own)" },
-          { id: "shared_assessments", label: "Shared assessments and issues across TPRM, cyber, and compliance teams" },
-          { id: "unified_vendor", label: "Unified risk record (every risk and control type: cyber, compliance, financial, regulatory, and reputational, rolls up to one record)" },
-          { id: "impact_network", label: "Connected impact network (vendors, risks, controls, assets, and compliance obligations on one model, so a vendor issue, a cyber finding, and a compliance gap flow to the same business-unit view)" },
+          { id: "siloed", label: "When a compliance control fails, the risk team hears about it by email or at the next review, then updates the affected risk by hand" },
+          { id: "shared_assessments", label: "The compliance team's results are visible to the risk team, so the risk team sees a failed control without having to ask for it" },
+          { id: "unified_vendor", label: "Every team's risks and controls (cyber, compliance, financial, regulatory) roll into one shared record, so the risk team and the compliance team work from the same source rather than their own copies" },
+          { id: "impact_network", label: "Vendors, controls, and obligations sit on one connected model, so a vendor breach, a failed control, or a new compliance gap flows to the risk, compliance, and business-unit owners it affects, each told what changed and what to fix" },
         ],
       },
       {
@@ -30,22 +43,23 @@ export const grcConfig = {
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "basic_questionnaires", label: "Basic vendor questionnaires (manual send and collect)" },
-          { id: "full_suite", label: "Full TPRM program (assessment workflows, remediation and SLA tracking, continuous monitoring)" },
-          { id: "automated_ingestion", label: "Automated evidence ingestion (auto-pull SOC 2, trust center, financial and public data; questionnaires for gaps only)" },
-          { id: "nth_party", label: "Nth-party and supply-chain mapping with continuous external monitoring (security ratings plus financial, sanctions, and reputational signals)" },
+          { id: "basic_questionnaires", label: "The vendor team sends security questionnaires by hand and chases vendors for answers over email" },
+          { id: "full_suite", label: "The vendor team runs a full TPRM program (assessment workflows, remediation and SLA tracking, continuous monitoring) in one place" },
+          { id: "automated_ingestion", label: "The vendor team's program pulls evidence automatically (SOC 2, trust center, financial and public data) and only sends questionnaires to fill the gaps" },
+          { id: "nth_party", label: "The vendor team maps nth-party and supply-chain exposure and monitors it continuously from the outside (security ratings plus financial, sanctions, and reputational signals), so a supplier problem shows up before a questionnaire would catch it" },
         ],
       },
       {
         id: "controls_compliance",
-        label: "Controls monitoring and compliance",
+        label: "Continuous controls",
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "none", label: "None (point-in-time audits only)" },
-          { id: "manual_evidence", label: "Manual evidence collection" },
-          { id: "continuous_monitoring", label: "Continuous control monitoring (automated evidence, live control status)" },
-          { id: "cross_framework", label: "Cross-framework control mapping across security and operational-resilience frameworks (for example ISO 27001, NIST CSF, ISO 22301, DORA): test one control, satisfy many frameworks" },
+          { id: "none", label: "The controls team proves controls only at audit time (point-in-time)" },
+          { id: "manual_evidence", label: "The controls team collects evidence by hand throughout the year" },
+          { id: "continuous_monitoring", label: "Controls are monitored continuously (automated evidence, live status), so the controls team sees a failure as it happens" },
+          { id: "cross_framework", label: "Plus cross-framework mapping (ISO 27001, NIST CSF, ISO 22301, DORA), so the compliance team tests one control and satisfies many frameworks at once" },
+          { id: "control_impact", label: "The moment a control fails, the risk and compliance teams are automatically shown the risks, obligations, and remediation it triggers" },
         ],
       },
       {
@@ -54,11 +68,11 @@ export const grcConfig = {
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "standard_reports", label: "Standard reports and dashboards, you assemble the board pack from exports and screenshots" },
-          { id: "prebuilt_dashboards", label: "Prebuilt cyber risk dashboards with self-serve export" },
-          { id: "automated_board_pack", label: "Automated board-pack generation (the system produces the committee-ready PPT or PDF, you review rather than assemble)" },
-          { id: "unified_rollup", label: "Unified cross-module executive rollup (one board-ready view across third-party, cyber, compliance, and AI, with CISO / CRO / CAE lenses)" },
-          { id: "quantified_exposure", label: "Rollup carries quantified monetary risk exposure (FAIR-style, in local currency) to the board" },
+          { id: "standard_reports", label: "Each team assembles its own board slides by hand from its own tool" },
+          { id: "prebuilt_dashboards", label: "Each team pulls from prebuilt dashboards and exports its own section" },
+          { id: "automated_board_pack", label: "Board packs are generated automatically from every team's live data" },
+          { id: "unified_rollup", label: "One report unifies third-party, cyber, compliance, and AI for executives and the board, instead of each team reporting separately" },
+          { id: "quantified_exposure", label: "That unified report puts a dollar figure on exposure (FAIR-style, in local currency), so the board sees risk in money" },
         ],
       },
       {
@@ -67,10 +81,10 @@ export const grcConfig = {
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "not_included", label: "Not included" },
-          { id: "ai_inventory", label: "AI asset inventory" },
-          { id: "ai_risk_assessment", label: "AI risk assessment vs EU AI Act / ISO 42001" },
-          { id: "continuous_ai_monitoring", label: "Continuous AI risk monitoring and controls" },
+          { id: "not_included", label: "AI use is not governed" },
+          { id: "ai_inventory", label: "The governance team keeps a maintained register of the AI models and tools teams use" },
+          { id: "ai_risk_assessment", label: "The governance team assesses those AI systems against the EU AI Act and ISO 42001, flagging which ones carry regulatory risk" },
+          { id: "continuous_ai_monitoring", label: "AI risk is monitored continuously in real time, so the governance team is alerted the moment a model drifts or a new one appears" },
         ],
       },
       {
@@ -79,11 +93,11 @@ export const grcConfig = {
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "no_ai", label: "No AI" },
-          { id: "ai_suggests", label: "AI suggests, human executes" },
-          { id: "ai_acts_approve", label: "AI acts, you approve" },
-          { id: "ai_autonomous_review", label: "AI runs autonomously, you review exceptions" },
-          { id: "fully_autonomous", label: "Fully autonomous" },
+          { id: "no_ai", label: "No AI; the controls team does the work itself" },
+          { id: "ai_suggests", label: "AI drafts the next step (a remediation, an evidence request) and a person on the team sends it" },
+          { id: "ai_acts_approve", label: "AI acts once someone on the team approves each action" },
+          { id: "ai_autonomous_review", label: "AI runs the routine work (collecting evidence, testing controls) on its own and the team reviews only the exceptions" },
+          { id: "fully_autonomous", label: "AI runs fully autonomously within the guardrails the team sets" },
         ],
       },
       {
@@ -92,11 +106,10 @@ export const grcConfig = {
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "shared_no_guarantee", label: "Shared SaaS, no regional guarantee" },
-          { id: "shared_major_region", label: "Shared SaaS, choice of major region" },
-          { id: "tenant_in_region", label: "Tenant-isolated, in-region" },
-          { id: "cmk_in_region", label: "Customer-managed keys, in-region" },
-          { id: "onprem_sovereign", label: "On-prem / sovereign" },
+          { id: "shared_no_guarantee", label: "Shared cloud with no guarantee of where the data sits" },
+          { id: "shared_major_region", label: "The security team picks the region the data stays in" },
+          { id: "tenant_in_region", label: "Each business unit or site runs in its own isolated tenant, in-region (for complex, multi-entity orgs)" },
+          { id: "onprem_selfhosted", label: "The IT team runs it on-premises or self-hosted in your own environment" },
         ],
       },
       {
@@ -105,10 +118,10 @@ export const grcConfig = {
         in_byo: true,
         price_type: "none" as const,
         levels: [
-          { id: "none", label: "None (spreadsheets and documents)" },
-          { id: "standalone_tool", label: "Standalone BCM tool (separate from your risk data)" },
-          { id: "integrated_module", label: "In-platform BCM lifecycle (impact analysis, continuity plans, recovery testing), not yet connected to risk data" },
-          { id: "connected_bcm", label: "BCM connected to your cyber and third-party risk model (an outage or breach flows into continuity plans)" },
+          { id: "none", label: "The continuity team keeps BIAs and plans in spreadsheets, separate from the risk team's work" },
+          { id: "standalone_tool", label: "The continuity team uses a standalone tool for its BIAs and plans, still apart from the risk data" },
+          { id: "integrated_module", label: "The continuity team's BIAs, plans, and recovery tests sit alongside the risk and controls teams' work rather than in a separate tool, though the plans do not yet update automatically when the risk data changes" },
+          { id: "connected_bcm", label: "When the vendor team or security team logs a failure or breach, it flows straight into the affected continuity plans, so the continuity team's recovery reflects the risk as it happens" },
         ],
       },
     ],
