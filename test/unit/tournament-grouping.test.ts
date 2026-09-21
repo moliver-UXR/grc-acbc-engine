@@ -157,3 +157,123 @@ describe("reducer - sole survivor after screening", () => {
     }
   });
 });
+
+// A confirmed dealbreaker sends the engine to REGENERATE, which filters the
+// pool down to the concepts that do not carry the invalidated level and
+// tries to replace the ones removed. This config gives the replacement
+// generator nowhere to go: the only attribute has 2 levels, Amin=Amax=1
+// forces every candidate to vary that single attribute, and once the
+// dealbreaker level is excluded, the only allowed level is the one the
+// surviving concept already carries, so every generated candidate is a
+// duplicate of it. Regeneration therefore exhausts down to exactly the one
+// concept the respondent accepted, with no unseen concept left to present,
+// which is the REGENERATE-exhausted branch (reducer.ts, the branch guarding
+// TOURNAMENT entry after "if (!hasUnseen)").
+describe("reducer - REGENERATE exhausted down to a sole survivor via a confirmed dealbreaker", () => {
+  function buildDealbreakerConfig(calibration: boolean): StudyConfig {
+    return parseConfig({
+      study: {
+        attributes: [
+          {
+            id: "attr",
+            label: "Attr",
+            in_byo: true,
+            price_type: "none",
+            levels: [
+              { id: "l0", label: "L0" },
+              { id: "l1", label: "L1" },
+            ],
+          },
+        ],
+        design: {
+          T: 6,
+          Amin: 1,
+          Amax: 1,
+          screens_per_concept_batch: 6,
+          total_screening_screens: 1,
+          price_variation_pct: 0,
+          price_rounding: 1,
+        },
+        phases: {
+          byo: true,
+          screening: true,
+          must_have: true,
+          unacceptable: true,
+          tournament: true,
+          calibration,
+        },
+        estimation: { method: "mnl", price_function: "linear" },
+      },
+    });
+  }
+
+  function buildConfirmState(config: StudyConfig): EngineState {
+    const byoConcept: Concept = { id: "byo-concept", levels: { attr: "l0" }, source: "BYO" };
+    // The survivor carries the level the dealbreaker will not touch; the
+    // other five carry the level about to be confirmed unacceptable.
+    const survivor: Concept = { id: "concept-survivor", levels: { attr: "l0" }, source: "SCREENING" };
+    const rejected: Concept[] = Array.from({ length: 5 }, (_, i) => ({
+      id: `concept-rejected-${i}`,
+      levels: { attr: "l1" },
+      source: "SCREENING" as const,
+    }));
+    const conceptPool = [survivor, ...rejected];
+    const screened = conceptPool.map((c, i) => ({
+      conceptId: c.id,
+      possible: c.id === survivor.id,
+      screenIndex: i,
+    }));
+    return {
+      ...createInitialState("s", "r", config, "seed"),
+      phase: "CONFIRM_UNACCEPTABLE",
+      byoConcept,
+      conceptPool,
+      screened,
+      candidateRule: { kind: "unacceptable", attributeId: "attr", levelId: "l1", confirmedAtScreen: screened.length },
+    };
+  }
+
+  it("transitions to CALIBRATION with the sole survivor as champion, never a sub-2 tournament task, when calibration is enabled", () => {
+    const config = buildDealbreakerConfig(true);
+    let state = buildConfirmState(config);
+
+    // Confirm the dealbreaker: this only records the rule and moves the
+    // phase to REGENERATE, it does not run the regenerate logic itself.
+    state = reduce(state, { type: "RULE_CONFIRMED" }, config);
+    expect(state.phase).toBe("REGENERATE");
+    expect(state.confirmedRules).toEqual([
+      { kind: "unacceptable", attributeId: "attr", levelId: "l1", confirmedAtScreen: 6 },
+    ]);
+
+    // The REGENERATE case does not branch on event type, so any event
+    // drives the actual pool-regeneration and exhaustion check.
+    state = reduce(state, { type: "RULE_CONFIRMED" }, config);
+
+    expect(state.phase).toBe("CALIBRATION");
+    expect(state.survivingConceptIds).toEqual(["concept-survivor"]);
+    expect(state.tournamentRounds).toEqual([]);
+    for (const round of state.tournamentRounds) {
+      for (const task of round.tasks) {
+        expect(task.concepts.length).toBeGreaterThanOrEqual(2);
+      }
+    }
+
+    const task = serializeStateToQualtricsTask(state, config);
+    expect(task.taskType).toBe("calibration");
+    expect(task.winnerConcept?.id).toBe("concept-survivor");
+  });
+
+  it("transitions to DONE with no tournament when calibration is disabled", () => {
+    const config = buildDealbreakerConfig(false);
+    let state = buildConfirmState(config);
+
+    state = reduce(state, { type: "RULE_CONFIRMED" }, config);
+    expect(state.phase).toBe("REGENERATE");
+
+    state = reduce(state, { type: "RULE_CONFIRMED" }, config);
+
+    expect(state.phase).toBe("DONE");
+    expect(state.survivingConceptIds).toEqual(["concept-survivor"]);
+    expect(state.tournamentRounds).toEqual([]);
+  });
+});
