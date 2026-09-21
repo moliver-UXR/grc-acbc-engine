@@ -195,11 +195,25 @@ export function buildEngineEventFromChoice(
   taskId: string,
   choice: Record<string, string>
 ): EngineEvent {
+  // Untrusted-input boundary: `choice` is arbitrary client JSON. Reject
+  // malformed/missing/wrong-type input with a clear Error rather than
+  // fabricating a default or silently coercing it (the server's /next
+  // catch turns this into an HTTP 400, so the client resends and nothing
+  // corrupt is ever recorded), F18.
+  if (choice === null || typeof choice !== "object" || Array.isArray(choice)) {
+    throw new Error("choice must be an object");
+  }
+
   if (state.phase === "BYO") {
     return { type: "BYO_SUBMITTED", answers: choice };
   }
 
   if (state.phase === "SCREENING") {
+    for (const v of Object.values(choice)) {
+      if (v !== "possible" && v !== "not-possible") {
+        throw new Error("screening value must be 'possible' or 'not-possible'");
+      }
+    }
     const responses = Object.entries(choice).map(([conceptId, value], i) => ({
       conceptId,
       possible: value === "possible",
@@ -210,18 +224,27 @@ export function buildEngineEventFromChoice(
 
   if (state.phase === "CONFIRM_MUST_HAVE" || state.phase === "CONFIRM_UNACCEPTABLE") {
     const decision = choice["confirm_decision"];
-    if (decision === "confirm") return { type: "RULE_CONFIRMED" };
-    return { type: "RULE_REJECTED" };
+    if (decision !== "confirm" && decision !== "reject") {
+      throw new Error("confirm_decision must be 'confirm' or 'reject'");
+    }
+    return decision === "confirm" ? { type: "RULE_CONFIRMED" } : { type: "RULE_REJECTED" };
   }
 
   if (state.phase === "TOURNAMENT") {
-    const chosenConceptId = choice["tournament_choice"] ?? null;
+    const chosenConceptId = choice["tournament_choice"];
+    if (typeof chosenConceptId !== "string" || chosenConceptId.length === 0) {
+      throw new Error("tournament_choice required");
+    }
     const matchupId = taskId;
     return { type: "TOURNAMENT_TASK_SUBMITTED", matchupId, chosenConceptId };
   }
 
   if (state.phase === "CALIBRATION") {
-    const purchaseIntent = parseInt(choice["purchase_intent"] ?? "3", 10);
+    const raw = choice["purchase_intent"];
+    const purchaseIntent = Number(raw);
+    if (raw === undefined || !Number.isInteger(purchaseIntent) || purchaseIntent < 1 || purchaseIntent > 5) {
+      throw new Error("purchase_intent must be an integer 1-5");
+    }
     const lastRound = state.tournamentRounds[state.tournamentRounds.length - 1];
     const lastTask = lastRound?.tasks[lastRound.tasks.length - 1];
     // Same sole-survivor fallback as serializeStateToQualtricsTask above,
