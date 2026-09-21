@@ -7,7 +7,7 @@ import {
 } from "../../src/core/reducer.js";
 import { serializeStateToQualtricsTask } from "../../src/integration/qualtrics-adapter.js";
 import { parseConfig } from "../../src/core/config.js";
-import type { Concept, EngineState, StudyConfig } from "../../src/core/types.js";
+import type { Concept, EngineState, StudyConfig, TournamentRound } from "../../src/core/types.js";
 
 // A minimal config whose single attribute has one distinct level per pool
 // concept. With a per-level exposure of 1 (below detectCandidateRule's
@@ -169,6 +169,50 @@ describe("reducer - sole survivor after screening", () => {
 // concept the respondent accepted, with no unseen concept left to present,
 // which is the REGENERATE-exhausted branch (reducer.ts, the branch guarding
 // TOURNAMENT entry after "if (!hasUnseen)").
+describe("buildTournament with a survivor id absent from the pool", () => {
+  it("drops the unresolved id instead of throwing, building tasks only from real concepts", () => {
+    const pool: Concept[] = [
+      { id: "a", levels: { attr: "l0" }, source: "SCREENING" },
+      { id: "b", levels: { attr: "l1" }, source: "SCREENING" },
+    ];
+
+    let rounds: TournamentRound[] = [];
+    expect(() => {
+      rounds = buildTournament(["a", "b", "ghost"], pool, "seed");
+    }).not.toThrow();
+
+    const allConceptIds = rounds.flatMap((r) => r.tasks.flatMap((t) => t.concepts.map((c) => c.id)));
+    expect(allConceptIds.every((id) => id === "a" || id === "b" || /^winner-r\d+-\d+$/.test(id))).toBe(true);
+    expect(allConceptIds).not.toContain("ghost");
+  });
+});
+
+describe("reducer - finalizeScreening resolves survivors against the pool before branching", () => {
+  it("routes to the champion phase (not a sub-2 tournament) when one of two accepted survivors is absent from the pool", () => {
+    const config = makeSoleSurvivorConfig(true);
+    // Pool only contains concept-0; concept-1 was accepted during screening
+    // but then dropped from the pool (e.g. by a later regeneration), so only
+    // one of the two "accepted" survivor ids actually resolves.
+    const pool: Concept[] = [{ id: "concept-0", levels: { attr: "l0" }, source: "SCREENING" }];
+    const screened = [
+      { conceptId: "concept-0", possible: true, screenIndex: 0 },
+      { conceptId: "concept-1", possible: true, screenIndex: 1 },
+    ];
+    let state: EngineState = {
+      ...createInitialState("s", "r", config, "seed"),
+      phase: "SCREENING",
+      conceptPool: pool,
+      screened,
+    };
+
+    state = reduce(state, { type: "SCREEN_SUBMITTED", responses: [] }, config);
+
+    expect(state.phase).toBe("CALIBRATION");
+    expect(state.survivingConceptIds).toEqual(["concept-0"]);
+    expect(state.tournamentRounds).toEqual([]);
+  });
+});
+
 describe("reducer - REGENERATE exhausted down to a sole survivor via a confirmed dealbreaker", () => {
   function buildDealbreakerConfig(calibration: boolean): StudyConfig {
     return parseConfig({
